@@ -1,4 +1,4 @@
-name: Spark Framework CI
+name: Flash Framework CI
 
 on:
   push:

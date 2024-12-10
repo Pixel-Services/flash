@@ -5,16 +5,16 @@
          xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd">
     <display-name>Archetype Created Web Application</display-name>
     <filter>
-        <filter-name>SparkFilter</filter-name>
-        <filter-class>spark.servlet.SparkFilter</filter-class>
+        <filter-name>FlashFilter</filter-name>
+        <filter-class>flash.servlet.FlashFilter</filter-class>
         <init-param>
             <param-name>applicationClass</param-name>
-            <param-value>spark.servlet.MyApp</param-value>
+            <param-value>flash.servlet.MyApp</param-value>
         </init-param>
     </filter>
 
     <filter-mapping>
-        <filter-name>SparkFilter</filter-name>
+        <filter-name>FlashFilter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 </web-app>
