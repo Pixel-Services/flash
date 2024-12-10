@@ -141,8 +141,8 @@ public class Routes {
      *
      * @param path       the route path
      * @param httpMethod the http method
-     * @return <tt>true</tt> if this a matching route has been previously routed
-     * @throws IllegalArgumentException if <tt>path</tt> is null or blank or if <tt>httpMethod</tt> is null, blank
+     * @return true if this a matching route has been previously routed
+     * @throws IllegalArgumentException if path is null or blank or if httpMethod is null, blank
      *                                  or an invalid HTTP method
      * @since 2.2
      */
@@ -166,8 +166,8 @@ public class Routes {
      * Search for a previously established routes using the given path and removes any matches that are found.
      *
      * @param path the route path
-     * @return <tt>true</tt> if this a matching route has been previously routed
-     * @throws java.lang.IllegalArgumentException if <tt>path</tt> is null or blank
+     * @return true if this a matching route has been previously routed
+     * @throws java.lang.IllegalArgumentException if path is null or blank
      * @since 2.2
      */
     public boolean remove(String path) {

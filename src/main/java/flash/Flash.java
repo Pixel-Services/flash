@@ -872,8 +872,8 @@ public class Flash {
      * Search for previously established routes using the given path and unmaps any matches that are found.
      *
      * @param path          the route path
-     * @return              <tt>true</tt> if this is a matching route which has been previously routed
-     * @throws IllegalArgumentException if <tt>path</tt> is null or blank
+     * @return              true if this is a matching route which has been previously routed
+     * @throws IllegalArgumentException if path is null or blank
      */
     public static boolean unmap(String path) {
         return getInstance().unmap(path);
@@ -886,8 +886,8 @@ public class Flash {
      *
      * @param path          the route path
      * @param httpMethod    the http method
-     * @return <tt>true</tt> if this is a matching route that has been previously routed
-     * @throws IllegalArgumentException if <tt>path</tt> is null or blank or if <tt>httpMethod</tt> is null, blank,
+     * @return true if this is a matching route that has been previously routed
+     * @throws IllegalArgumentException if path is null or blank or if httpMethod is null, blank,
      * or an invalid HTTP method
      */
     public static boolean unmap(String path, String httpMethod) {
