@@ -27,6 +27,7 @@ import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.server.handler.ContextHandlerCollection;
 import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.util.thread.ThreadPool;
@@ -135,12 +136,10 @@ public class EmbeddedJettyServer implements EmbeddedServer {
             handlersInList.add(handler);
 
             // WebSocket handler must be the last one
-            if (webSocketServletContextHandler != null) {
-                handlersInList.add(webSocketServletContextHandler);
-            }
+            handlersInList.add(webSocketServletContextHandler);
 
             HandlerList handlers = new HandlerList();
-            handlers.setHandlers(handlersInList.toArray(new Handler[handlersInList.size()]));
+            handlers.setHandlers(handlersInList.toArray(new Handler[0]));
             server.setHandler(handlers);
         }
 

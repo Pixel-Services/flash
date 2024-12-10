@@ -16,7 +16,7 @@
  */
 package flash.http.matching;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import flash.Response;
 import flash.route.*;

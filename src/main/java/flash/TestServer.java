@@ -2,18 +2,24 @@ package flash;
 
 import flash.route.RouteController;
 
-import static flash.Flash.get;
-import static flash.Flash.port;
+import static flash.Flash.*;
 
 public class TestServer {
     public static void main(String[] args) {
+        // Set the port for the server
         port(8080);
-        registerControllers();
-    }
 
-    private static void registerControllers() {
-        get("/hello", (req, res) -> "hi there");
+        // Register WebSocket handler
+        webSocket("/ws", TestWebsocketHandler.class);
+
+        // Register simple routes
+        get("/hello", (req, res) -> "Hi There");
+
+        // You can also register additional route controllers
         new RouteController("/test")
             .register(TestHandler.class);
+
+        // Start the server
+        init();
     }
 }

@@ -58,25 +58,25 @@ public final class Service extends Routable {
     private static final Logger LOG = LoggerFactory.getLogger("flash.Flash");
 
     public static final int FLASH_DEFAULT_PORT = 4567;
-    protected static final String DEFAULT_ACCEPT_TYPE = "*/*";
+    static final String DEFAULT_ACCEPT_TYPE = "*/*";
 
-    protected boolean initialized = false;
+    private boolean initialized = false;
 
-    protected int port = FLASH_DEFAULT_PORT;
-    protected String ipAddress = "0.0.0.0";
+    private int port = FLASH_DEFAULT_PORT;
+    private String ipAddress = "0.0.0.0";
 
-    protected SslStores sslStores;
+    private SslStores sslStores;
 
-    protected Map<String, WebSocketHandlerWrapper> webSocketHandlers = null;
+    private Map<String, WebSocketHandlerWrapper> webSocketHandlers = null;
 
-    protected int maxThreads = -1;
-    protected int minThreads = -1;
-    protected int threadIdleTimeoutMillis = -1;
-    protected Optional<Long> webSocketIdleTimeoutMillis = Optional.empty();
+    private int maxThreads = -1;
+    private int minThreads = -1;
+    private int threadIdleTimeoutMillis = -1;
+    private Optional<Long> webSocketIdleTimeoutMillis = Optional.empty();
 
-    protected EmbeddedServer server;
-    protected Deque<String> pathDeque = new ArrayDeque<>();
-    protected Routes routes;
+    private EmbeddedServer server;
+    private Deque<String> pathDeque = new ArrayDeque<>();
+    private Routes routes;
 
     private CountDownLatch initLatch = new CountDownLatch(1);
     private CountDownLatch stopLatch = new CountDownLatch(0);
@@ -91,7 +91,7 @@ public final class Service extends Routable {
 
     // default exception handler during initialization phase
     private Consumer<Exception> initExceptionHandler = (e) -> {
-        LOG.error("ignite failed", e);
+        System.out.println("ignite failed: " + e.getMessage());
         System.exit(100);
     };
 
@@ -104,7 +104,12 @@ public final class Service extends Routable {
      * @return the newly created object
      */
     public static Service ignite() {
-        return new Service();
+        System.out.println("🔥 Igniting Flash!");
+        long startTime = System.currentTimeMillis();
+        Service service = new Service();
+        long endTime = System.currentTimeMillis();
+        System.out.println(" ⤷ ✅ Flash ignited in " + (endTime - startTime) + " ms");
+        return service;
     }
 
     private Service() {
@@ -424,6 +429,7 @@ public final class Service extends Routable {
             throwBeforeRouteMappingException();
         }
         if (isRunningFromServlet()) {
+            System.out.println("WebSockets are only supported in the embedded server");
             throw new IllegalStateException("WebSockets are only supported in the embedded server");
         }
         requireNonNull(path, "WebSocket path cannot be null");
@@ -514,10 +520,15 @@ public final class Service extends Routable {
      * Stops the Flash server and clears all routes.
      */
     public synchronized void stop() {
-    	if (!initialized) {
-    		return;
-    	}
-        initiateStop();
+        if (!initialized) {
+            return;
+        }
+        System.out.println("🛑 Stopping Flash server...");
+        long startTime = System.currentTimeMillis();
+        server.extinguish();
+        initialized = false;
+        long endTime = System.currentTimeMillis();
+        System.out.println("✅ Flash server stopped in " + (endTime - startTime) + " ms");
     }
 
     /**
@@ -572,7 +583,7 @@ public final class Service extends Routable {
     }
 
     public String getPaths() {
-        return pathDeque.stream().collect(Collectors.joining(""));
+        return String.join("", pathDeque);
     }
     /**
      * @return all routes information from this service
@@ -584,6 +595,7 @@ public final class Service extends Routable {
     @Override
     public void addRoute(HttpMethod httpMethod, RouteImpl route) {
         init();
+        //System.out.println("Adding route: " + httpMethod + " " + getPaths() + route.getPath());
         routes.add(httpMethod, route.withPrefix(getPaths()));
     }
 
@@ -610,6 +622,8 @@ public final class Service extends Routable {
     public synchronized void init() {
         if (!initialized) {
 
+            System.out.println("🚀 Initializing Flash server...");
+            long startTime = System.currentTimeMillis();
             initializeRouteMatcher();
 
             if (!isRunningFromServlet()) {
@@ -650,6 +664,9 @@ public final class Service extends Routable {
                 }).start();
             }
             initialized = true;
+            initLatch.countDown();
+            long endTime = System.currentTimeMillis();
+            System.out.println(" ⤷ ✅ Flash server initialized in " + (endTime - startTime) + " ms");
         }
     }
 

@@ -34,7 +34,7 @@ public class EmbeddedServers {
         JETTY
     }
 
-    private static Map<Object, EmbeddedServerFactory> factories = new HashMap<>();
+    private static final Map<Object, EmbeddedServerFactory> factories = new HashMap<>();
 
     public static void initialize() {
         if (!factories.containsKey(Identifiers.JETTY)) {

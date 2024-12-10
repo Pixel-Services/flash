@@ -4,9 +4,9 @@ import flash.Request;
 import flash.Response;
 import org.json.JSONObject;
 
-import javax.servlet.MultipartConfigElement;
-import javax.servlet.ServletException;
-import javax.servlet.http.Part;
+import jakarta.servlet.MultipartConfigElement;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Part;
 import java.io.InputStream;
 import java.util.Collection;
 
