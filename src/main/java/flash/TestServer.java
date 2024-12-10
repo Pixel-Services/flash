@@ -1,5 +1,6 @@
 package flash;
 
+import flash.config.FlashConfiguration;
 import flash.route.RouteController;
 
 import static flash.Flash.*;
@@ -18,5 +19,10 @@ public class TestServer {
 
         // Start the server
         init();
+
+        // Load & Test Config
+        FlashConfiguration config = new FlashConfiguration();
+        config.set("test", "Hello from the config!");
+        System.out.println(config.get("test"));
     }
 }
