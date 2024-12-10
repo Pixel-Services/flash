@@ -1,0 +1,24 @@
+name: Deploy Javadoc
+
+on:
+    pull_request:
+        branches:
+            - master
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v3
+
+            - name: Deploy JavaDoc 🚀
+              uses: MathieuSoysal/Javadoc-publisher.yml@v2.5.0
+              with:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  javadoc-branch: javadoc
+                  java-version: 21
+                  target-folder: javadoc
+                  project: maven
