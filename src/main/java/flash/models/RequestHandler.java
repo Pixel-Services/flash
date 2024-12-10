@@ -9,6 +9,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Part;
 import java.io.InputStream;
 import java.util.Collection;
+import java.util.Map;
 
 public abstract class RequestHandler {
     protected Request req;

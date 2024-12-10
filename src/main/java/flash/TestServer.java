@@ -12,11 +12,8 @@ public class TestServer {
         // Register WebSocket handler
         webSocket("/ws", TestWebsocketHandler.class);
 
-        // Register simple routes
-        get("/hello", (req, res) -> "Hi There");
-
         // You can also register additional route controllers
-        new RouteController("/test")
+        new RouteController("/")
             .register(TestHandler.class);
 
         // Start the server
