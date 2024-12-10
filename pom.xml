@@ -28,12 +28,26 @@
         </repository>
     </distributionManagement>
 
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <!-- JSON Parsing -->
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
             <version>20240303</version>
+        </dependency>
+
+        <!-- YAML Parsing -->
+        <dependency>
+            <groupId>com.github.Carleslc.Simple-YAML</groupId>
+            <artifactId>Simple-Yaml</artifactId>
+            <version>1.8.4</version>
         </dependency>
 
         <!-- Logging -->
