@@ -3,6 +3,9 @@ name: Deploy Javadocs
 on:
     release:
         types: [published]
+    push:
+        branches:
+            master
 
 jobs:
     publish:
