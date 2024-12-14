@@ -131,6 +131,14 @@ public class ExpectedRequestParameter {
     }
 
     /**
+     * Get the field value
+     * @return The field value
+     */
+    public Object getFieldValue() {
+        return fieldValue;
+    }
+
+    /**
      * Get the field value as a JSONArray
      * @return The field value as a JSONArray
      */
@@ -144,15 +152,8 @@ public class ExpectedRequestParameter {
      * @param message The error message
      */
     private void sendErrorResponse(String message) {
+        requestHandler.getResponse().type("text");
         requestHandler.getResponse().status(400);
-        requestHandler.getResponse().body("Error: " + message);
-    }
-
-    /**
-     * Get the field value
-     * @return The field value
-     */
-    public Object getFieldValue() {
-        return fieldValue;
+        requestHandler.getResponse().body(new JSONObject().put("error", message).toString());
     }
 }

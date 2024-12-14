@@ -139,7 +139,6 @@ public class ExpectedBodyField {
 
     /**
      * Get the field value as a JSONArray
-     * @return The field value as a JSONArray
      */
     private void throwTypeError(String expectedType) {
         sendErrorResponse("Expected '" + expectedType + "', but got '" + fieldValue.getClass().getSimpleName() + "' in request body field \"" + fieldName + "\"");
@@ -151,7 +150,8 @@ public class ExpectedBodyField {
      * @param message The error message
      */
     private void sendErrorResponse(String message) {
+        requestHandler.getResponse().type("text");
         requestHandler.getResponse().status(400);
-        requestHandler.getResponse().body("Error: " + message);
+        requestHandler.getResponse().body(new JSONObject().put("error", message).toString());
     }
 }

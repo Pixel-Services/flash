@@ -11,6 +11,7 @@ import jakarta.servlet.MultipartConfigElement;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.Part;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONObject;
 
 /**
  * The ExpectedBodyFile lets you assume the existence of a file in the request body and work with it
@@ -101,7 +102,8 @@ public class ExpectedBodyFile {
      * @param message The error message
      */
     private void sendErrorResponse(String message) {
+        requestHandler.getResponse().type("text");
         requestHandler.getResponse().status(400);
-        requestHandler.getResponse().body("Error: " + message);
+        requestHandler.getResponse().body(new JSONObject().put("error", message).toString());
     }
 }

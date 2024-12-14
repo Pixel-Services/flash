@@ -19,6 +19,7 @@ public class TestHandler extends RequestHandler {
                 System.out.println("Received file: " + fileName);
             });
 
-        return null;
+        res.status(200);
+        return "aa";
     }
 }
