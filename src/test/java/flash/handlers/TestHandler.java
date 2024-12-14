@@ -1,5 +1,7 @@
-package flash;
+package flash.handlers;
 
+import flash.Request;
+import flash.Response;
 import flash.models.*;
 import flash.route.HttpMethod;
 

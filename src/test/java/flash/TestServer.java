@@ -1,6 +1,7 @@
 package flash;
 
 import flash.config.FlashConfiguration;
+import flash.handlers.TestHandler;
 import flash.route.RouteController;
 
 import static flash.Flash.*;
