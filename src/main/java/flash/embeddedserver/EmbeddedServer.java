@@ -47,7 +47,7 @@ public interface EmbeddedServer {
 
 
     /**
-     * Must be called before ignite()
+     * Must be called BEFORE ignite()
      *
      * Must be it's own default method to maintain backwards compatibility. Move to ignite method in 3.0.
      */

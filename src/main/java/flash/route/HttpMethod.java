@@ -19,12 +19,12 @@ package flash.route;
 import java.util.HashMap;
 
 /**
- * @author Per Wendel
+ * Enum for HTTP methods
  */
 public enum HttpMethod {
-    get, post, put, patch, delete, head, trace, connect, options, before, after, afterafter, unsupported;
+    GET, POST, PUT, PATCH, DELETE, HEAD, TRACE, CONNECT, OPTIONS, BEFORE, AFTER, AFTERAFTER, UNSUPPORTED;
 
-    private static HashMap<String, HttpMethod> methods = new HashMap<>();
+    private static final HashMap<String, HttpMethod> methods = new HashMap<>();
 
     static {
         for (HttpMethod method : values()) {
@@ -34,13 +34,13 @@ public enum HttpMethod {
 
     /**
      * Gets the HttpMethod corresponding to the provided string. If no corresponding method can be found
-     * {@link flash.route.HttpMethod#unsupported} will be returned.
+     * {@link flash.route.HttpMethod#UNSUPPORTED} will be returned.
      *
      * @param methodStr The string containing HTTP method name
      * @return          The HttpMethod corresponding to the provided string
      */
     public static HttpMethod get(String methodStr) {
-        HttpMethod method = methods.get(methodStr);
-        return method != null ? method : unsupported;
+        HttpMethod method = methods.get(methodStr.toUpperCase());
+        return method != null ? method : UNSUPPORTED;
     }
 }

@@ -13,7 +13,7 @@ public class TestServer {
         webSocket("/ws", TestWebsocketHandler.class);
 
         // You can also register additional route controllers
-        new RouteController("/")
+        new RouteController("/api")
             .register(TestHandler.class);
 
         // Start the server

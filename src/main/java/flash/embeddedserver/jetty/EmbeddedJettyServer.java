@@ -96,7 +96,7 @@ public class EmbeddedJettyServer implements EmbeddedServer {
             try (ServerSocket s = new ServerSocket(0)) {
                 port = s.getLocalPort();
             } catch (IOException e) {
-                logger.error("Could not get first available port (port set to 0), using default: {}", FLASH_DEFAULT_PORT);
+                logger.error("Could not GET first available port (port set to 0), using default: {}", FLASH_DEFAULT_PORT);
                 port = FLASH_DEFAULT_PORT;
             }
         }

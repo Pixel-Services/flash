@@ -25,7 +25,7 @@ import flash.route.HttpMethod;
 import flash.routematch.RouteMatch;
 
 /**
- * Executes the after filters matching an HTTP request.
+ * Executes the AFTER filters matching an HTTP request.
  */
 final class AfterFilters {
 
@@ -33,7 +33,7 @@ final class AfterFilters {
 
         Object content = context.body().get();
 
-        List<RouteMatch> matchSet = context.routeMatcher().findMultiple(HttpMethod.after,
+        List<RouteMatch> matchSet = context.routeMatcher().findMultiple(HttpMethod.AFTER,
                                                                         context.uri(),
                                                                         context.acceptType());
 

@@ -1,5 +1,7 @@
 package flash.models;
 
+import flash.route.HttpMethod;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -9,6 +11,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RouteInfo {
     String endpoint();
-    RequestMethod method();
+    HttpMethod method();
     boolean enforceNonNullBody() default false;
 }

@@ -22,7 +22,7 @@ package flash.utils.urldecoding;
  * This class wraps a standard {@link java.lang.StringBuilder} and provides methods to append
  * UTF-8 encoded bytes, that are converted into characters.
  *
- * This class is stateful and up to 4 calls to {@link #append(byte)} may be needed before
+ * This class is stateful and up to 4 calls to {@link #append(byte)} may be needed BEFORE
  * state a character is appended to the string buffer.
  *
  * The UTF-8 decoding is done by this class and no additional buffers or Readers are used.

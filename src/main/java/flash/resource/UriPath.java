@@ -136,7 +136,7 @@ public class UriPath {
                     }
             }
 
-            // Do the delete
+            // Do the DELETE
             if (skip <= 0 && delStart >= 0 && delEnd >= delStart) {
                 buf.delete(delStart, delEnd);
                 delStart = delEnd = -1;
@@ -153,7 +153,7 @@ public class UriPath {
             return null;
         }
 
-        // Do the delete
+        // Do the DELETE
         if (delEnd >= 0) {
             buf.delete(delStart, delEnd);
         }

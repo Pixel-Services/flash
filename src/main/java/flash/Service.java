@@ -52,7 +52,7 @@ import static flash.globalstate.ServletFlag.isRunningFromServlet;
  * the semantic makes sense. For example 'http' is a good variable name since when adding routes it would be:
  * Service http = ignite();
  * ...
- * http.get("/hello", (q, a) {@literal ->} "Hello World");
+ * http.GET("/hello", (q, a) {@literal ->} "Hello World");
  */
 public final class Service extends Routable {
     private static final Logger LOG = LoggerFactory.getLogger("flash.Flash");
@@ -146,7 +146,7 @@ public final class Service extends Routable {
 
     /**
      * Set the IP address that Flash should listen on. If not called the default
-     * address is '0.0.0.0'. This has to be called before any route mapping is
+     * address is '0.0.0.0'. This has to be called BEFORE any route mapping is
      * done.
      *
      * @param ipAddress The ipAddress
@@ -163,7 +163,7 @@ public final class Service extends Routable {
 
     /**
      * Set the port that Flash should listen on. If not called the default port
-     * is 4567. This has to be called before any route mapping is done.
+     * is 4567. This has to be called BEFORE any route mapping is done.
      * If provided port = 0 then the an arbitrary available port will be used.
      *
      * @param port The port number
@@ -187,13 +187,13 @@ public final class Service extends Routable {
         if (initialized) {
             return port;
         } else {
-            throw new IllegalStateException("This must be done after route mapping has begun");
+            throw new IllegalStateException("This must be done AFTER route mapping has begun");
         }
     }
 
     /**
      * Set the connection to be secure, using the specified keystore and
-     * truststore. This has to be called before any route mapping is done. You
+     * truststore. This has to be called BEFORE any route mapping is done. You
      * have to supply a keystore file, truststore file is optional (keystore
      * will be reused). By default, client certificates are not checked.
      * This method is only relevant when using embedded Jetty servers. It should
@@ -216,7 +216,7 @@ public final class Service extends Routable {
 
     /**
      * Set the connection to be secure, using the specified keystore and
-     * truststore. This has to be called before any route mapping is done. You
+     * truststore. This has to be called BEFORE any route mapping is done. You
      * have to supply a keystore file, truststore file is optional (keystore
      * will be reused). By default, client certificates are not checked.
      * This method is only relevant when using embedded Jetty servers. It should
@@ -241,7 +241,7 @@ public final class Service extends Routable {
 
     /**
      * Set the connection to be secure, using the specified keystore and
-     * truststore. This has to be called before any route mapping is done. You
+     * truststore. This has to be called BEFORE any route mapping is done. You
      * have to supply a keystore file, truststore file is optional (keystore
      * will be reused).
      * This method is only relevant when using embedded Jetty servers. It should
@@ -267,7 +267,7 @@ public final class Service extends Routable {
 
     /**
      * Set the connection to be secure, using the specified keystore and
-     * truststore. This has to be called before any route mapping is done. You
+     * truststore. This has to be called BEFORE any route mapping is done. You
      * have to supply a keystore file, truststore file is optional (keystore
      * will be reused).
      * This method is only relevant when using embedded Jetty servers. It should
@@ -335,7 +335,7 @@ public final class Service extends Routable {
 
     /**
      * Sets the folder in classpath serving static files. Observe: this method
-     * must be called before all other methods.
+     * must be called BEFORE all other methods.
      *
      * @param folder the folder in classpath.
      * @return the object with folder set
@@ -355,7 +355,7 @@ public final class Service extends Routable {
 
     /**
      * Sets the external folder serving static files. <b>Observe: this method
-     * must be called before all other methods.</b>
+     * must be called BEFORE all other methods.</b>
      *
      * @param externalFolder the external folder serving static files.
      * @return the object with external folder set
@@ -508,7 +508,7 @@ public final class Service extends Routable {
 
     private void throwBeforeRouteMappingException() {
         throw new IllegalStateException(
-                "This must be done before route mapping has begun");
+                "This must be done BEFORE route mapping has begun");
     }
 
     private boolean hasMultipleHandlers() {
@@ -567,8 +567,8 @@ public final class Service extends Routable {
      * routes from the routeGroup, then pops the path-fragment again.
      * It's used for separating routes into groups, for example:
      * path("/api/email", () -> {
-     * ....post("/add",       EmailApi::addEmail);
-     * ....put("/change",     EmailApi::changeEmail);
+     * ....POST("/add",       EmailApi::addEmail);
+     * ....PUT("/change",     EmailApi::changeEmail);
      * ....etc
      * });
      * Multiple path() calls can be nested.
@@ -807,7 +807,7 @@ public final class Service extends Routable {
 
         /**
          * Sets the folder in classpath serving static files. Observe: this method
-         * must be called before all other methods.
+         * must be called BEFORE all other methods.
          *
          * @param folder the folder in classpath.
          */
@@ -817,7 +817,7 @@ public final class Service extends Routable {
 
         /**
          * Sets the external folder serving static files. <b>Observe: this method
-         * must be called before all other methods.</b>
+         * must be called BEFORE all other methods.</b>
          *
          * @param externalFolder the external folder serving static files.
          */

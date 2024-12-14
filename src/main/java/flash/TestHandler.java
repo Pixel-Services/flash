@@ -1,9 +1,9 @@
 package flash;
 
 import flash.models.*;
-import org.json.JSONObject;
+import flash.route.HttpMethod;
 
-@RouteInfo(endpoint = "greet", method = RequestMethod.GET, enforceNonNullBody = false)
+@RouteInfo(endpoint = "test", method = HttpMethod.GET, enforceNonNullBody = false)
 public class TestHandler extends RequestHandler {
 
     public TestHandler(Request req, Response res) {
@@ -12,12 +12,11 @@ public class TestHandler extends RequestHandler {
 
     @Override
     public Object handle() {
-        int fooParam = new ExpectedRequestParameter("fooParam", this).getInt();
-        int barBodyField = new ExpectedBodyField("barBodyField", this).getInt();
+        new ExpectedBodyFile("file", this)
+            .processFile((inputStream, fileName) -> {
+                System.out.println("Received file: " + fileName);
+            });
 
-        String name = fooParam + " " + barBodyField;
-        res.type("text/plain");
-        return "Hello, " + name + "!";
+        return null;
     }
-
 }

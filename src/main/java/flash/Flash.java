@@ -27,17 +27,17 @@ import static flash.Service.ignite;
  * The main building block of a Flash application is a set of routes. A route is
  * made up of three simple pieces:
  * <ul>
- * <li>A verb (get, post, put, delete, head, trace, connect, options)</li>
+ * <li>A verb (GET, POST, PUT, DELETE, HEAD, TRACE, CONNECT, OPTIONS)</li>
  * <li>A path (/hello, /users/:name)</li>
  * <li>A callback (request, response)</li>
  * </ul>
  * Example:
- * get("/hello", (request, response) -&#62; {
+ * GET("/hello", (request, response) -&#62; {
  * return "Hello World!";
  * });
  * The public methods and fields in this class should be statically imported for the semantic to make sense.
  * Ie. one should use:
- * 'post("/books")' without the prefix 'Flash.'
+ * 'POST("/books")' without the prefix 'Flash.'
  *
  * @author Per Wendel
  */
@@ -74,8 +74,8 @@ public class Flash {
      * routes from the routeGroup, then pops the path-fragment again.
      * It's used for separating routes into groups, for example:
      * path("/api/email", () -> {
-     * ....post("/add",       EmailApi::addEmail);
-     * ....put("/change",     EmailApi::changeEmail);
+     * ....POST("/add",       EmailApi::addEmail);
+     * ....PUT("/change",     EmailApi::changeEmail);
      * ....etc
      * });
      * Multiple path() calls can be nested.
@@ -178,7 +178,7 @@ public class Flash {
     }
 
     /**
-     * Maps a filter to be executed before any matching routes
+     * Maps a filter to be executed BEFORE any matching routes
      *
      * @param path   the path
      * @param filter The filter
@@ -188,7 +188,7 @@ public class Flash {
     }
 
     /**
-     * Maps an array of filters to be executed before any matching routes
+     * Maps an array of filters to be executed BEFORE any matching routes
      *
      * @param path    the path
      * @param filters the filters
@@ -201,7 +201,7 @@ public class Flash {
     }
 
     /**
-     * Maps a filter to be executed after any matching routes
+     * Maps a filter to be executed AFTER any matching routes
      *
      * @param path   the path
      * @param filter The filter
@@ -211,7 +211,7 @@ public class Flash {
     }
 
     /**
-     * Maps an array of filters to be executed after any matching routes
+     * Maps an array of filters to be executed AFTER any matching routes
      *
      * @param path    the path
      * @param filters The filters
@@ -328,7 +328,7 @@ public class Flash {
 
 
     /**
-     * Maps one or many filters to be executed before any matching routes
+     * Maps one or many filters to be executed BEFORE any matching routes
      *
      * @param filters The filters
      */
@@ -339,7 +339,7 @@ public class Flash {
     }
 
     /**
-     * Maps one or many filters to be executed after any matching routes
+     * Maps one or many filters to be executed AFTER any matching routes
      *
      * @param filters The filters
      */
@@ -350,7 +350,7 @@ public class Flash {
     }
 
     /**
-     * Maps one or many filters to be executed before any matching routes
+     * Maps one or many filters to be executed BEFORE any matching routes
      *
      * @param path       the path
      * @param acceptType the accept type
@@ -364,7 +364,7 @@ public class Flash {
 
 
     /**
-     * Maps one or many filters to be executed after any matching routes
+     * Maps one or many filters to be executed AFTER any matching routes
      *
      * @param path       the path
      * @param acceptType the accept type
@@ -377,7 +377,7 @@ public class Flash {
     }
 
     /**
-     * Execute after route even if the route throws exception
+     * Execute AFTER route even if the route throws exception
      *
      * @param path   the path
      * @param filter the filter
@@ -387,7 +387,7 @@ public class Flash {
     }
 
     /**
-     * Execute after any matching route even if the route throws exception
+     * Execute AFTER any matching route even if the route throws exception
      *
      * @param filter the filter
      */
@@ -961,7 +961,7 @@ public class Flash {
 
     /**
      * Set the IP address that Flash should listen on. If not called the default
-     * address is '0.0.0.0'. This has to be called before any route mapping is
+     * address is '0.0.0.0'. This has to be called BEFORE any route mapping is
      * done.
      *
      * @param ipAddress The ipAddress
@@ -973,7 +973,7 @@ public class Flash {
 
     /**
      * Set the IP address that Flash should listen on. If not called the default
-     * address is '0.0.0.0'. This has to be called before any route mapping is
+     * address is '0.0.0.0'. This has to be called BEFORE any route mapping is
      * done.
      *
      * @param ipAddress The ipAddress
@@ -993,7 +993,7 @@ public class Flash {
 
     /**
      * Set the port that Flash should listen on. If not called the default port
-     * is 4567. This has to be called before any route mapping is done.
+     * is 4567. This has to be called BEFORE any route mapping is done.
      * If provided port = 0 then the an arbitrary available port will be used.
      *
      * @param port The port number
@@ -1005,7 +1005,7 @@ public class Flash {
 
     /**
      * Set the port that Flash should listen on. If not called the default port
-     * is 4567. This has to be called before any route mapping is done.
+     * is 4567. This has to be called BEFORE any route mapping is done.
      * If provided port = 0 then the an arbitrary available port will be used.
      *
      * @param port The port number
@@ -1026,7 +1026,7 @@ public class Flash {
 
     /**
      * Set the connection to be secure, using the specified keystore and
-     * truststore. This has to be called before any route mapping is done. You
+     * truststore. This has to be called BEFORE any route mapping is done. You
      * have to supply a keystore file, truststore file is optional (keystore
      * will be reused).
      * This method is only relevant when using embedded Jetty servers. It should
@@ -1049,7 +1049,7 @@ public class Flash {
 
     /**
      * Set the connection to be secure, using the specified keystore and
-     * truststore. This has to be called before any route mapping is done. You
+     * truststore. This has to be called BEFORE any route mapping is done. You
      * have to supply a keystore file, truststore file is optional (keystore
      * will be reused).
      * This method is only relevant when using embedded Jetty servers. It should
@@ -1071,7 +1071,7 @@ public class Flash {
 
     /**
      * Set the connection to be secure, using the specified keystore and
-     * truststore. This has to be called before any route mapping is done. You
+     * truststore. This has to be called BEFORE any route mapping is done. You
      * have to supply a keystore file, truststore file is optional (keystore
      * will be reused).
      * This method is only relevant when using embedded Jetty servers. It should
@@ -1104,7 +1104,7 @@ public class Flash {
 
     /**
      * Set the connection to be secure, using the specified keystore and
-     * truststore. This has to be called before any route mapping is done. You
+     * truststore. This has to be called BEFORE any route mapping is done. You
      * have to supply a keystore file, truststore file is optional (keystore
      * will be reused).
      * This method is only relevant when using embedded Jetty servers. It should
@@ -1129,7 +1129,7 @@ public class Flash {
 
     /**
      * Set the connection to be secure, using the specified keystore and
-     * truststore. This has to be called before any route mapping is done. You
+     * truststore. This has to be called BEFORE any route mapping is done. You
      * have to supply a keystore file, truststore file is optional (keystore
      * will be reused).
      * This method is only relevant when using embedded Jetty servers. It should
@@ -1176,7 +1176,7 @@ public class Flash {
 
     /**
      * Sets the folder in classpath serving static files. Observe: this method
-     * must be called before all other methods.
+     * must be called BEFORE all other methods.
      * -
      * Note: contemplate changing tonew static files paradigm {@link flash.Service.StaticFiles}
      *
@@ -1188,7 +1188,7 @@ public class Flash {
 
     /**
      * Sets the external folder serving static files. <b>Observe: this method
-     * must be called before all other methods.</b>
+     * must be called BEFORE all other methods.</b>
      * -
      * Note: contemplate use of new static files paradigm {@link flash.Service.StaticFiles}
      *
