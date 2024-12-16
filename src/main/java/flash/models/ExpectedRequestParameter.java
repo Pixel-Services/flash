@@ -8,7 +8,6 @@ import org.json.JSONObject;
  */
 public class ExpectedRequestParameter {
     private final String parameterName;
-    private final Object fieldValue;
     private final RequestHandler requestHandler;
 
     /**
@@ -19,16 +18,24 @@ public class ExpectedRequestParameter {
     public ExpectedRequestParameter(String parameterName, RequestHandler requestHandler) {
         this.parameterName = parameterName;
         this.requestHandler = requestHandler;
+    }
 
-        requestHandler.addExpectedField("parameter", parameterName);
+    /**
+     * Get the field value
+     * @return The field value
+     */
+    public Object getFieldValue() {
+        // Ensure the request and response objects are initialized
+        if (requestHandler.getRequest() == null) {
+            throw new IllegalStateException("Request is not initialized yet.");
+        }
 
         if (!requestHandler.getRequest().queryParams().contains(parameterName)) {
-            requestHandler.getResponse().status(400);
-            requestHandler.getResponse().body("Error: Missing expected parameter: " + parameterName);
+            sendErrorResponse("Missing expected parameter: " + parameterName);
             throw new IllegalArgumentException("Missing expected parameter: " + parameterName);
         }
 
-        this.fieldValue = requestHandler.getRequest().queryParams(parameterName);
+        return requestHandler.getRequest().queryParams(parameterName);
     }
 
     /**
@@ -36,7 +43,7 @@ public class ExpectedRequestParameter {
      * @return The field value as a String
      */
     public String getString() {
-        return misc.parseField(fieldValue, String.class, e -> {
+        return misc.parseField(getFieldValue(), String.class, e -> {
             throwTypeError("String");
         });
     }
@@ -46,7 +53,7 @@ public class ExpectedRequestParameter {
      * @return The field value as an Integer
      */
     public Integer getInt() {
-        return misc.parseField(fieldValue, Integer.class, e -> {
+        return misc.parseField(getFieldValue(), Integer.class, e -> {
             throwTypeError("Integer");
         });
     }
@@ -56,7 +63,7 @@ public class ExpectedRequestParameter {
      * @return The field value as a Boolean
      */
     public Boolean getBoolean() {
-        return misc.parseField(fieldValue, Boolean.class, e -> {
+        return misc.parseField(getFieldValue(), Boolean.class, e -> {
             throwTypeError("Boolean");
         });
     }
@@ -66,7 +73,7 @@ public class ExpectedRequestParameter {
      * @return The field value as a Long
      */
     public Long getLong() {
-        return misc.parseField(fieldValue, Long.class, e -> {
+        return misc.parseField(getFieldValue(), Long.class, e -> {
             throwTypeError("Long");
         });
     }
@@ -76,7 +83,7 @@ public class ExpectedRequestParameter {
      * @return The field value as a Double
      */
     public Double getDouble() {
-        return misc.parseField(fieldValue, Double.class, e -> {
+        return misc.parseField(getFieldValue(), Double.class, e -> {
             throwTypeError("Double");
         });
     }
@@ -86,7 +93,7 @@ public class ExpectedRequestParameter {
      * @return The field value as a Float
      */
     public Float getFloat() {
-        return misc.parseField(fieldValue, Float.class, e -> {
+        return misc.parseField(getFieldValue(), Float.class, e -> {
             throwTypeError("Float");
         });
     }
@@ -96,7 +103,7 @@ public class ExpectedRequestParameter {
      * @return The field value as a Byte
      */
     public Byte getByte() {
-        return misc.parseField(fieldValue, Byte.class, e -> {
+        return misc.parseField(getFieldValue(), Byte.class, e -> {
             throwTypeError("Byte");
         });
     }
@@ -106,7 +113,7 @@ public class ExpectedRequestParameter {
      * @return The field value as a Short
      */
     public Short getShort() {
-        return misc.parseField(fieldValue, Short.class, e -> {
+        return misc.parseField(getFieldValue(), Short.class, e -> {
             throwTypeError("Short");
         });
     }
@@ -116,6 +123,7 @@ public class ExpectedRequestParameter {
      * @return The field value as a Character
      */
     public char getChar() {
+        Object fieldValue = getFieldValue();
         if (fieldValue instanceof String && ((String) fieldValue).length() == 1) {
             return ((String) fieldValue).charAt(0);
         }
@@ -128,25 +136,9 @@ public class ExpectedRequestParameter {
      * @return The field value as a JSONObject
      */
     public JSONObject getJSONObject() {
-        return misc.parseField(fieldValue, JSONObject.class, e -> {
+        return misc.parseField(getFieldValue(), JSONObject.class, e -> {
             throwTypeError("JSONObject");
         });
-    }
-
-    /**
-     * Get the field value
-     * @return The field value
-     */
-    public Object getFieldValue() {
-        return fieldValue;
-    }
-
-    /**
-     * Get the parameter name
-     * @return The parameter name
-     */
-    public String getParameterName() {
-        return parameterName;
     }
 
     /**
@@ -154,6 +146,7 @@ public class ExpectedRequestParameter {
      * @return The field value as a JSONArray
      */
     private void throwTypeError(String expectedType) {
+        Object fieldValue = getFieldValue();
         sendErrorResponse("Expected '" + expectedType + "', but got '" + fieldValue.getClass().getSimpleName() + "' in request parameter \"" + parameterName + "\"");
         throw new IllegalArgumentException("Expected '" + expectedType + "', but got '" + fieldValue.getClass().getSimpleName() + "' in request parameter \"" + parameterName + "\"");
     }

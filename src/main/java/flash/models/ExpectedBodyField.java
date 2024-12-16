@@ -8,20 +8,24 @@ import org.json.JSONObject;
  */
 public class ExpectedBodyField {
     private final String fieldName;
-    private final Object fieldValue;
     private final RequestHandler requestHandler;
 
     /**
      * Constructor for ExpectedBodyField
-     * @param fieldName The name of the field to be retrieved from the request body
+     * @param fieldName The name of the field to be retrieved from the request
      * @param requestHandler The RequestHandler object
      */
     public ExpectedBodyField(String fieldName, RequestHandler requestHandler) {
         this.fieldName = fieldName;
         this.requestHandler = requestHandler;
+    }
 
-        requestHandler.addExpectedField("body", fieldName);
-
+    /**
+     * Get the field value
+     * @return The field value
+     */
+    public Object getFieldValue() {
+        // Ensure the request and response objects are initialized
         JSONObject reqBody = RequestHandler.getRequestBody(requestHandler.getRequest());
 
         if (reqBody == null || reqBody.isEmpty()) {
@@ -34,7 +38,7 @@ public class ExpectedBodyField {
             throw new IllegalArgumentException("Missing expected field: " + fieldName);
         }
 
-        this.fieldValue = reqBody.get(fieldName);
+        return reqBody.get(fieldName);
     }
 
     /**
@@ -42,7 +46,7 @@ public class ExpectedBodyField {
      * @return The field value as a String
      */
     public String getString() {
-        return misc.parseField(fieldValue, String.class, e -> {
+        return misc.parseField(getFieldValue(), String.class, e -> {
             throwTypeError("String");
         });
     }
@@ -52,7 +56,7 @@ public class ExpectedBodyField {
      * @return The field value as an Integer
      */
     public Integer getInt() {
-        return misc.parseField(fieldValue, Integer.class, e -> {
+        return misc.parseField(getFieldValue(), Integer.class, e -> {
             throwTypeError("Integer");
         });
     }
@@ -62,7 +66,7 @@ public class ExpectedBodyField {
      * @return The field value as a Boolean
      */
     public Boolean getBoolean() {
-        return misc.parseField(fieldValue, Boolean.class, e -> {
+        return misc.parseField(getFieldValue(), Boolean.class, e -> {
             throwTypeError("Boolean");
         });
     }
@@ -72,7 +76,7 @@ public class ExpectedBodyField {
      * @return The field value as a Long
      */
     public Long getLong() {
-        return misc.parseField(fieldValue, Long.class, e -> {
+        return misc.parseField(getFieldValue(), Long.class, e -> {
             throwTypeError("Long");
         });
     }
@@ -82,7 +86,7 @@ public class ExpectedBodyField {
      * @return The field value as a Double
      */
     public Double getDouble() {
-        return misc.parseField(fieldValue, Double.class, e -> {
+        return misc.parseField(getFieldValue(), Double.class, e -> {
             throwTypeError("Double");
         });
     }
@@ -92,7 +96,7 @@ public class ExpectedBodyField {
      * @return The field value as a Float
      */
     public Float getFloat() {
-        return misc.parseField(fieldValue, Float.class, e -> {
+        return misc.parseField(getFieldValue(), Float.class, e -> {
             throwTypeError("Float");
         });
     }
@@ -102,7 +106,7 @@ public class ExpectedBodyField {
      * @return The field value as a Byte
      */
     public Byte getByte() {
-        return misc.parseField(fieldValue, Byte.class, e -> {
+        return misc.parseField(getFieldValue(), Byte.class, e -> {
             throwTypeError("Byte");
         });
     }
@@ -112,7 +116,7 @@ public class ExpectedBodyField {
      * @return The field value as a Short
      */
     public Short getShort() {
-        return misc.parseField(fieldValue, Short.class, e -> {
+        return misc.parseField(getFieldValue(), Short.class, e -> {
             throwTypeError("Short");
         });
     }
@@ -122,6 +126,7 @@ public class ExpectedBodyField {
      * @return The field value as a char
      */
     public char getChar() {
+        Object fieldValue = getFieldValue();
         if (fieldValue instanceof String && ((String) fieldValue).length() == 1) {
             return ((String) fieldValue).charAt(0);
         }
@@ -134,6 +139,7 @@ public class ExpectedBodyField {
      * @return The field value as a JSONObject
      */
     public JSONObject getJSONObject() {
+        Object fieldValue = getFieldValue();
         return misc.parseField(fieldValue, JSONObject.class, e -> {
             throwTypeError("JSONObject");
             throw new IllegalArgumentException("Expected 'JSONObject', but got '" + fieldValue.getClass().getSimpleName() + "' in field '" + fieldName + "'");
@@ -142,16 +148,9 @@ public class ExpectedBodyField {
 
     /**
      * Get the field value as a JSONArray
-     * @return The field value as a JSONArray
-     */
-    public String getFieldName() {
-        return fieldName;
-    }
-
-    /**
-     * Get the field value as a JSONArray
      */
     private void throwTypeError(String expectedType) {
+        Object fieldValue = getFieldValue();
         sendErrorResponse("Expected '" + expectedType + "', but got '" + fieldValue.getClass().getSimpleName() + "' in request body field \"" + fieldName + "\"");
         throw new IllegalArgumentException("Expected '" + expectedType + "', but got '" + fieldValue.getClass().getSimpleName() + "' in request body field \"" + fieldName + "\"");
     }

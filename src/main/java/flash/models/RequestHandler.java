@@ -20,6 +20,10 @@ public abstract class RequestHandler {
     protected Response res;
     protected Map<String, String> expectedFields = new HashMap<>();
 
+    protected Map<String, ExpectedRequestParameter> expectedRequestParameters = new HashMap<>();
+    protected Map<String, ExpectedBodyField> expectedBodyFields = new HashMap<>();
+    protected Map<String, ExpectedBodyFile> expectedBodyFiles = new HashMap<>();
+
     /**
      * Constructor for RequestHandler
      * @param req The Request object
@@ -70,31 +74,7 @@ public abstract class RequestHandler {
      * @return The request body as a JSONObject
      */
     public JSONObject getRequestBody() {
-        JSONObject json = new JSONObject();
-        try {
-            String contentType = req.contentType();
-            if (contentType == null || !contentType.startsWith("multipart/form-data")) {
-                return json; // Return empty JSON object if content type is not multipart/form-data
-            }
-
-            req.raw().setAttribute("org.eclipse.jetty.multipartConfig", new MultipartConfigElement("/temp"));
-            Collection<Part> parts = req.raw().getParts();
-
-            for (Part part : parts) {
-                if (part.getSubmittedFileName() == null) {
-                    InputStream inputStream = part.getInputStream();
-                    byte[] bytes = inputStream.readAllBytes();
-                    String value = new String(bytes);
-                    json.put(part.getName(), value);
-                }
-            }
-            return json;
-
-        } catch (ServletException e) {
-            return json; // Return empty JSON object
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid request body", e);
-        }
+        return getRequestBody(req);
     }
 
     /**
@@ -126,6 +106,48 @@ public abstract class RequestHandler {
     }
 
     /**
+     * Specify an expected request parameter
+     * @param parameterName The name of the parameter
+     * @return The ExpectedRequestParameter object
+     */
+    public ExpectedRequestParameter expectedRequestParameter(String parameterName) {
+        if (expectedRequestParameters.containsKey(parameterName)) {
+            return expectedRequestParameters.get(parameterName);
+        }
+        ExpectedRequestParameter instance = new ExpectedRequestParameter(parameterName, this);
+        expectedRequestParameters.put(parameterName, instance);
+        return instance;
+    }
+
+    /**
+     * Specify an expected body field
+     * @param fieldName The name of the field
+     * @return The ExpectedBodyField object
+     */
+    public ExpectedBodyField expectedBodyField(String fieldName) {
+        if (expectedBodyFields.containsKey(fieldName)) {
+            return expectedBodyFields.get(fieldName);
+        }
+        ExpectedBodyField instance = new ExpectedBodyField(fieldName, this);
+        expectedBodyFields.put(fieldName, instance);
+        return instance;
+    }
+
+    /**
+     * Specify an expected body file
+     * @param fieldName The name of the file
+     * @return The ExpectedBodyFile object
+     */
+    public ExpectedBodyFile expectedBodyFile(String fieldName) {
+        if (expectedBodyFiles.containsKey(fieldName)) {
+            return expectedBodyFiles.get(fieldName);
+        }
+        ExpectedBodyFile instance = new ExpectedBodyFile(fieldName, this);
+        expectedBodyFiles.put(fieldName, instance);
+        return instance;
+    }
+
+    /**
      * Get the request object
      * @return The request object
      */
@@ -139,6 +161,37 @@ public abstract class RequestHandler {
      */
     public Response getResponse() {
         return res;
+    }
+
+    /**
+     * @return The expected request parameters
+     */
+    public Map<String, ExpectedRequestParameter> getExpectedRequestParameters() {
+        return expectedRequestParameters;
+    }
+
+    /**
+     * @return The expected body fields
+     */
+    public Map<String, ExpectedBodyField> getExpectedBodyFields() {
+        return expectedBodyFields;
+    }
+
+    /**
+     * @return The expected body files
+     */
+    public Map<String, ExpectedBodyFile> getExpectedBodyFiles() {
+        return expectedBodyFiles;
+    }
+
+    /**
+     * Set the request and response objects
+     * @param req The request object
+     * @param res The response object
+     */
+    public void setRequestResponse(Request req, Response res) {
+        this.req = req;
+        this.res = res;
     }
 
     /**
