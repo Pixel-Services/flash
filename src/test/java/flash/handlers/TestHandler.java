@@ -7,19 +7,18 @@ import flash.route.HttpMethod;
 
 @RouteInfo(endpoint = "test", method = HttpMethod.GET, enforceNonNullBody = false)
 public class TestHandler extends RequestHandler {
+    private final ExpectedRequestParameter p1;
+    private final ExpectedBodyField b1;
 
     public TestHandler(Request req, Response res) {
         super(req, res);
+        p1 = expectedRequestParameter("p1");
+        b1 = expectedBodyField("b1");
     }
 
     @Override
     public Object handle() {
-        new ExpectedBodyFile("file", this)
-            .processFile((inputStream, fileName) -> {
-                System.out.println("Received file: " + fileName);
-            });
-
         res.status(200);
-        return "aa";
+        return "param is : " + p1.getString();
     }
 }

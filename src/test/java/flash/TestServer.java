@@ -2,7 +2,10 @@ package flash;
 
 import flash.config.FlashConfiguration;
 import flash.handlers.TestHandler;
+import flash.models.RequestHandler;
 import flash.route.RouteController;
+
+import java.util.List;
 
 import static flash.FlashServerHelper.*;
 
@@ -15,8 +18,10 @@ public class TestServer {
         webSocket("/ws", TestWebsocketHandler.class);
 
         // You can also register additional route controllers
-        new RouteController("/api")
-            .register(TestHandler.class);
+        RouteController apiController = new RouteController("/api");
+
+        apiController.register(TestHandler.class);
+        List<RequestHandler> handlers = apiController.getHandlers();
 
         // Start the server
         init();

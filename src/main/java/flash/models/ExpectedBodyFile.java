@@ -17,8 +17,8 @@ import org.json.JSONObject;
  * The ExpectedBodyFile lets you assume the existence of a file in the request body and work with it
  */
 public class ExpectedBodyFile {
+    private final String fieldName;
     private final RequestHandler requestHandler;
-    private final Part filePart;
 
     /**
      * Constructor for ExpectedBodyFile
@@ -26,7 +26,16 @@ public class ExpectedBodyFile {
      * @param requestHandler The RequestHandler object
      */
     public ExpectedBodyFile(String fieldName, RequestHandler requestHandler) {
+        this.fieldName = fieldName;
         this.requestHandler = requestHandler;
+    }
+
+    /**
+     * Get the file part
+     * @return The file part
+     */
+    public Part getFilePart() {
+        Part filePart = null;
 
         HttpServletRequest rawRequest = requestHandler.getRequest().raw();
         rawRequest.setAttribute(Request.__MULTIPART_CONFIG_ELEMENT, new MultipartConfigElement("/temp"));
@@ -41,6 +50,8 @@ public class ExpectedBodyFile {
             sendErrorResponse("Error processing file upload: " + e.getMessage());
             throw new IllegalArgumentException("Error processing file upload: " + e.getMessage(), e);
         }
+
+        return filePart;
     }
 
     /**
@@ -49,7 +60,7 @@ public class ExpectedBodyFile {
      */
     public InputStream getInputStream() {
         try {
-            return filePart.getInputStream();
+            return getFilePart().getInputStream();
         } catch (IOException e) {
             sendErrorResponse("Error reading file InputStream: " + e.getMessage());
             throw new IllegalArgumentException("Error reading file InputStream: " + e.getMessage(), e);
@@ -61,7 +72,7 @@ public class ExpectedBodyFile {
      * @return The name of the file
      */
     public String getFileName() {
-        return filePart.getSubmittedFileName();
+        return getFilePart().getSubmittedFileName();
     }
 
     /**
@@ -69,7 +80,7 @@ public class ExpectedBodyFile {
      * @param fileProcessor The BiConsumer to process the file
      */
     public void processFile(BiConsumer<InputStream, String> fileProcessor) {
-        fileProcessor.accept(getInputStream(), filePart.getSubmittedFileName());
+        fileProcessor.accept(getInputStream(), getFilePart().getSubmittedFileName());
     }
 
     /**
