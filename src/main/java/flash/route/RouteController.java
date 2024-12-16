@@ -1,13 +1,8 @@
 package flash.route;
 
-import flash.Flash;
-import flash.Request;
-import flash.Response;
-import flash.Route;
-import flash.models.HandlerSpecification;
+import flash.*;
 import flash.models.RequestHandler;
 import flash.models.RouteInfo;
-import flash.swagger.SwaggerGenerator;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
@@ -15,20 +10,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
-import static flash.Flash.exception;
+import static flash.FlashServerHelper.exception;
 
 public class RouteController {
     private final String base;
     private final List<RequestHandler> handlers = new ArrayList<>();
 
     private final Map<HttpMethod, BiConsumer<String, Route>> methodMap = Map.of(
-        HttpMethod.GET, Flash::get,
-        HttpMethod.POST, Flash::post,
-        HttpMethod.PUT, Flash::put,
-        HttpMethod.PATCH, Flash::patch,
-        HttpMethod.DELETE, Flash::delete,
-        HttpMethod.HEAD, Flash::head,
-        HttpMethod.OPTIONS, Flash::options
+        HttpMethod.GET, FlashServerHelper::get,
+        HttpMethod.POST, FlashServerHelper::post,
+        HttpMethod.PUT, FlashServerHelper::put,
+        HttpMethod.PATCH, FlashServerHelper::patch,
+        HttpMethod.DELETE, FlashServerHelper::delete,
+        HttpMethod.HEAD, FlashServerHelper::head,
+        HttpMethod.OPTIONS, FlashServerHelper::options
     );
 
     public RouteController(String base) {
@@ -52,21 +47,7 @@ public class RouteController {
             throw new IllegalArgumentException("Unsupported HTTP method: " + method);
         }
 
-        routeRegistrar.accept(endpoint, (req, res) -> {
-            RequestHandler handlerInstance = createHandlerInstance(handlerClass, req, res);
-
-            HandlerSpecification handlerSpec = new HandlerSpecification(
-                handlerInstance,
-                endpoint,
-                method,
-                null,
-                getEnforceNonNullBody(handlerClass)
-            );
-
-            SwaggerGenerator.addEndpoint(handlerSpec);
-
-            return handlerInstance.handle();
-        });
+        routeRegistrar.accept(endpoint, (req, res) -> createHandlerInstance(handlerClass, req, res).handle());
 
         registerUnsupportedMethods(endpoint, method);
 
@@ -87,13 +68,6 @@ public class RouteController {
     private String getEndpoint(Class<? extends RequestHandler> handlerClass) {
         if (handlerClass.isAnnotationPresent(RouteInfo.class)) {
             return handlerClass.getAnnotation(RouteInfo.class).endpoint();
-        }
-        throw new RuntimeException("No @RouteInfo annotation found on " + handlerClass.getName());
-    }
-
-    private boolean getEnforceNonNullBody(Class<? extends RequestHandler> handlerClass) {
-        if (handlerClass.isAnnotationPresent(RouteInfo.class)) {
-            return handlerClass.getAnnotation(RouteInfo.class).enforceNonNullBody();
         }
         throw new RuntimeException("No @RouteInfo annotation found on " + handlerClass.getName());
     }

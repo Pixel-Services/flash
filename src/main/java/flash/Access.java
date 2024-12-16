@@ -19,7 +19,6 @@ package flash;
 import flash.routematch.RouteMatch;
 
 public final class Access {
-
     private Access() {
         // hidden
     }
@@ -27,5 +26,4 @@ public final class Access {
     public static void changeMatch(Request request, RouteMatch match) {
         request.changeMatch(match);
     }
-
 }
