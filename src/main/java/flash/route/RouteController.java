@@ -4,7 +4,6 @@ import flash.*;
 import flash.models.HandlerSpecification;
 import flash.models.RequestHandler;
 import flash.models.RouteInfo;
-import flash.swagger.SwaggerGenerator;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
@@ -16,26 +15,29 @@ import java.util.function.BiConsumer;
 import static flash.FlashServerHelper.exception;
 
 public class RouteController {
+    private final FlashServer server;
     private final String base;
+    private final Map<HttpMethod, BiConsumer<String, Route>> methodMap;
     private final List<RequestHandler> handlers = new ArrayList<>();
     private final Map<Class<? extends RequestHandler>, RequestHandler> handlerInstances = new HashMap<>();
 
-    private final Map<HttpMethod, BiConsumer<String, Route>> methodMap = Map.of(
-        HttpMethod.GET, FlashServerHelper::get,
-        HttpMethod.POST, FlashServerHelper::post,
-        HttpMethod.PUT, FlashServerHelper::put,
-        HttpMethod.PATCH, FlashServerHelper::patch,
-        HttpMethod.DELETE, FlashServerHelper::delete,
-        HttpMethod.HEAD, FlashServerHelper::head,
-        HttpMethod.OPTIONS, FlashServerHelper::options
-    );
-
-    public RouteController(String base) {
+    public RouteController(String base, FlashServer server) {
+        this.server = server;
         this.base = base;
         exception(IllegalArgumentException.class, (exception, req, res) -> {
             res.status(400);
             res.body(exception.getMessage());
         });
+
+        methodMap = Map.of(
+            HttpMethod.GET, server::get,
+            HttpMethod.POST, server::post,
+            HttpMethod.PUT, server::put,
+            HttpMethod.PATCH, server::patch,
+            HttpMethod.DELETE, server::delete,
+            HttpMethod.HEAD, server::head,
+            HttpMethod.OPTIONS, server::options
+        );
     }
 
     public RouteController register(Class<? extends RequestHandler> handlerClass) {
@@ -44,12 +46,12 @@ public class RouteController {
         }
 
         // Instantiate the handler and store it
-        RequestHandler handlerInstance = createHandlerInstance(handlerClass, null, null);
+        RequestHandler handlerInstance = createHandlerInstance(handlerClass);
         handlerInstances.put(handlerClass, handlerInstance);
         handlers.add(handlerInstance);
 
         // Extract endpoint, method, and other metadata
-        String endpoint = base + "/" + getEndpoint(handlerClass);
+        String endpoint = base + getEndpoint(handlerClass);
         HttpMethod method = getMethod(handlerClass);
 
         BiConsumer<String, Route> routeRegistrar = methodMap.get(method);
@@ -73,7 +75,7 @@ public class RouteController {
             getEnforceNonNullBody(handlerClass)
         );
 
-        SwaggerGenerator.addEndpoint(specification);
+        handlerInstance.setSpecification(specification);
 
         // Register unsupported methods
         registerUnsupportedMethods(endpoint, method);
@@ -81,10 +83,10 @@ public class RouteController {
         return this;
     }
 
-    private RequestHandler createHandlerInstance(Class<? extends RequestHandler> handlerClass, Request req, Response res) {
+    private RequestHandler createHandlerInstance(Class<? extends RequestHandler> handlerClass) {
         try {
             Constructor<? extends RequestHandler> constructor = handlerClass.getConstructor(Request.class, Response.class);
-            return constructor.newInstance(req, res);
+            return constructor.newInstance(null, null);
         } catch (Exception e) {
             throw new RuntimeException("Failed to create handler instance", e);
         }

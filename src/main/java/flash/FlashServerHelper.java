@@ -16,12 +16,12 @@
  */
 package flash;
 
+import flash.route.RouteController;
 import flash.routematch.RouteMatch;
+import flash.swagger.FlashSwaggerGenerator;
 
 import java.util.List;
 import java.util.function.Consumer;
-
-import static flash.FlashServer.ignite;
 
 /**
  * The main building block of a Flash application is a set of routes. A route is
@@ -51,7 +51,7 @@ public class FlashServerHelper {
      * Initializes singleton.
      */
     private static class SingletonHolder {
-        private static final FlashServer INSTANCE = ignite();
+        private static final FlashServer INSTANCE = new FlashServer("Internal");
     }
 
     private static FlashServer getInstance() {
@@ -67,6 +67,17 @@ public class FlashServerHelper {
      * Statically import this for static files utility functionality, see {@link FlashServer.StaticFiles}
      */
     public static final FlashServer.StaticFiles staticFiles = getInstance().staticFiles;
+
+    /**
+     * Statically import this for routing, see {@link RouteController}
+     */
+    public static RouteController route(String base) {
+        return getInstance().route(base);
+    }
+
+    public static FlashSwaggerGenerator swagger(String title, String version, String description) {
+        return getInstance().swagger(title, version, description);
+    }
 
     /**
      * Add a path-prefix to the routes declared in the routeGroup
@@ -1299,8 +1310,8 @@ public class FlashServerHelper {
     /**
      * Initializes the Flash server. SHOULD just be used when using the Websockets functionality.
      */
-    public static void init() {
-        getInstance().init();
+    public static void start() {
+        getInstance().start();
     }
 
     /**

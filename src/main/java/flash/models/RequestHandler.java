@@ -18,6 +18,7 @@ import java.util.Map;
 public abstract class RequestHandler {
     protected Request req;
     protected Response res;
+    protected HandlerSpecification specification;
 
     protected Map<String, ExpectedRequestParameter> expectedRequestParameters = new HashMap<>();
     protected Map<String, ExpectedBodyField> expectedBodyFields = new HashMap<>();
@@ -182,6 +183,14 @@ public abstract class RequestHandler {
     public void setRequestResponse(Request req, Response res) {
         this.req = req;
         this.res = res;
+    }
+
+    public HandlerSpecification getSpecification() {
+        return specification;
+    }
+
+    public void setSpecification(HandlerSpecification specification) {
+        this.specification = specification;
     }
 
     /**

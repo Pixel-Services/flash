@@ -25,6 +25,8 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 
+import flash.route.RouteController;
+import flash.swagger.FlashSwaggerGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,17 +48,13 @@ import static flash.globalstate.ServletFlag.isRunningFromServlet;
 
 /**
  * Represents a Flash server "session".
- * If a user wants multiple 'Flashes' in his application the method {@link FlashServer#ignite()} should be statically
- * imported and used to create instances. The instance should typically be named so when prefixing the 'routing' methods
+ * The instance should typically be named so when prefixing the 'routing' methods
  * the semantic makes sense. For example 'http' is a good variable name since when adding routes it would be:
- * Service http = ignite();
- * ...
- * http.GET("/hello", (q, a) {@literal ->} "Hello World");
  */
 public final class FlashServer extends Routable {
     private static final Logger LOG = LoggerFactory.getLogger("flash.Flash");
 
-    public static final int FLASH_DEFAULT_PORT = 4567;
+    public static final int FLASH_DEFAULT_PORT = 4545;
     static final String DEFAULT_ACCEPT_TYPE = "*/*";
 
     private boolean initialized = false;
@@ -64,6 +62,7 @@ public final class FlashServer extends Routable {
     private int port = FLASH_DEFAULT_PORT;
     private String ipAddress = "0.0.0.0";
 
+    private String name;
     private SslStores sslStores;
 
     private Map<String, WebSocketHandlerWrapper> webSocketHandlers = null;
@@ -76,6 +75,8 @@ public final class FlashServer extends Routable {
     private EmbeddedServer server;
     private Deque<String> pathDeque = new ArrayDeque<>();
     private Routes routes;
+
+    private final Map<String, RouteController> routeControllers = new HashMap<>();
 
     private CountDownLatch initLatch = new CountDownLatch(1);
     private CountDownLatch stopLatch = new CountDownLatch(0);
@@ -96,22 +97,8 @@ public final class FlashServer extends Routable {
 
     private boolean trustForwardHeaders = true;
 
-    /**
-     * Creates a new Service (a Flash instance). This should be used instead of the static API if the user wants
-     * multiple services in one process.
-     *
-     * @return the newly created object
-     */
-    public static FlashServer ignite() {
-        System.out.println("🔥 Igniting Flash!");
-        long startTime = System.currentTimeMillis();
-        FlashServer server = new FlashServer();
-        long endTime = System.currentTimeMillis();
-        System.out.println(" ⤷ ✅ Flash ignited in " + (endTime - startTime) + " ms");
-        return server;
-    }
-
-    private FlashServer() {
+    public FlashServer(String name) {
+        this.name = name;
         redirect = Redirect.create(this);
         staticFiles = new StaticFiles();
 
@@ -120,6 +107,15 @@ public final class FlashServer extends Routable {
         } else {
             staticFilesConfiguration = StaticFilesConfiguration.create();
         }
+    }
+
+    public synchronized RouteController route(String base) {
+        if (routeControllers.containsKey(base)) {
+            return routeControllers.get(base);
+        }
+        RouteController instance = new RouteController(base, this);
+        routeControllers.put(base, instance);
+        return instance;
     }
 
     /**
@@ -160,10 +156,106 @@ public final class FlashServer extends Routable {
         return this;
     }
 
+    public synchronized void start() {
+        if (!initialized) {
+
+            System.out.println("🚀 Starting Flash server '" + name + "'...");
+            long startTime = System.currentTimeMillis();
+            initializeRouteMatcher();
+
+            if (!isRunningFromServlet()) {
+                new Thread(() -> {
+                    try {
+                        EmbeddedServers.initialize();
+
+                        if (embeddedServerIdentifier == null) {
+                            embeddedServerIdentifier = EmbeddedServers.defaultIdentifier();
+                        }
+
+                        server = EmbeddedServers.create(embeddedServerIdentifier,
+                            routes,
+                            exceptionMapper,
+                            staticFilesConfiguration,
+                            hasMultipleHandlers());
+
+                        server.configureWebSockets(webSocketHandlers, webSocketIdleTimeoutMillis);
+                        server.trustForwardHeaders(trustForwardHeaders);
+
+                        port = server.ignite(
+                            ipAddress,
+                            port,
+                            sslStores,
+                            maxThreads,
+                            minThreads,
+                            threadIdleTimeoutMillis);
+                    } catch (Exception e) {
+                        initExceptionHandler.accept(e);
+                    }
+                    try {
+                        initLatch.countDown();
+                        server.join();
+                    } catch (InterruptedException e) {
+                        LOG.error("server interrupted", e);
+                        Thread.currentThread().interrupt();
+                    }
+                }).start();
+            }
+            initialized = true;
+            initLatch.countDown();
+            long endTime = System.currentTimeMillis();
+            System.out.println("🟢 Server started in " + (endTime - startTime) + " ms!");
+        }
+    }
+
+    /**
+     * Stops the Flash server and clears all routes.
+     */
+    public synchronized void stop() {
+        if (!initialized) {
+            return;
+        }
+        System.out.println("🛑 Stopping Flash server '" + name + "'...");
+        long startTime = System.currentTimeMillis();
+        server.extinguish();
+        initialized = false;
+        long endTime = System.currentTimeMillis();
+        System.out.println("✅ Server stopped in " + (endTime - startTime) + " ms");
+    }
+
+    /**
+     * Waits for the Flash server to stop.
+     * <b>Warning:</b> this method should not be called from a request handler.
+     */
+    public void awaitStop() {
+        try {
+            stopLatch.await();
+        } catch (InterruptedException e) {
+            LOG.warn("Interrupted by another thread");
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private void initiateStop() {
+        stopLatch = new CountDownLatch(1);
+        Thread stopThread = new Thread(() -> {
+            if (server != null) {
+                server.extinguish();
+                initLatch = new CountDownLatch(1);
+            }
+
+            routes.clear();
+            exceptionMapper.clear();
+            staticFilesConfiguration.clear();
+            initialized = false;
+            stopLatch.countDown();
+        });
+        stopThread.start();
+    }
+
     /**
      * Set the port that Flash should listen on. If not called the default port
      * is 4567. This has to be called BEFORE any route mapping is done.
-     * If provided port = 0 then the an arbitrary available port will be used.
+     * If provided port = 0 then an arbitrary available port will be used.
      *
      * @param port The port number
      * @return the object with port set
@@ -514,52 +606,6 @@ public final class FlashServer extends Routable {
         return webSocketHandlers != null;
     }
 
-
-    /**
-     * Stops the Flash server and clears all routes.
-     */
-    public synchronized void stop() {
-        if (!initialized) {
-            return;
-        }
-        System.out.println("🛑 Stopping Flash server...");
-        long startTime = System.currentTimeMillis();
-        server.extinguish();
-        initialized = false;
-        long endTime = System.currentTimeMillis();
-        System.out.println("✅ Flash server stopped in " + (endTime - startTime) + " ms");
-    }
-
-    /**
-     * Waits for the Flash server to stop.
-     * <b>Warning:</b> this method should not be called from a request handler.
-     */
-    public void awaitStop() {
-        try {
-            stopLatch.await();
-        } catch (InterruptedException e) {
-            LOG.warn("Interrupted by another thread");
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    private void initiateStop() {
-    	stopLatch = new CountDownLatch(1);
-        Thread stopThread = new Thread(() -> {
-            if (server != null) {
-                server.extinguish();
-                initLatch = new CountDownLatch(1);
-            }
-
-            routes.clear();
-            exceptionMapper.clear();
-            staticFilesConfiguration.clear();
-            initialized = false;
-            stopLatch.countDown();
-        });
-        stopThread.start();
-    }
-
     /**
      * Add a path-prefix to the routes declared in the routeGroup
      * The path() method adds a path-fragment to a path-stack, adds
@@ -593,80 +639,29 @@ public final class FlashServer extends Routable {
 
     @Override
     public void addRoute(HttpMethod httpMethod, RouteImpl route) {
-        init();
+        start();
         //System.out.println("Adding route: " + httpMethod + " " + getPaths() + route.getPath());
         routes.add(httpMethod, route.withPrefix(getPaths()));
     }
 
     @Override
     public void addFilter(HttpMethod httpMethod, FilterImpl filter) {
-        init();
+        start();
         routes.add(httpMethod, filter.withPrefix(getPaths()));
     }
 
     @Override
     @Deprecated
     public void addRoute(String httpMethod, RouteImpl route) {
-        init();
+        start();
         routes.add(httpMethod + " '" + getPaths() + route.getPath() + "'", route.getAcceptType(), route);
     }
 
     @Override
     @Deprecated
     public void addFilter(String httpMethod, FilterImpl filter) {
-        init();
+        start();
         routes.add(httpMethod + " '" + getPaths() + filter.getPath() + "'", filter.getAcceptType(), filter);
-    }
-
-    public synchronized void init() {
-        if (!initialized) {
-
-            System.out.println("🚀 Initializing Flash server...");
-            long startTime = System.currentTimeMillis();
-            initializeRouteMatcher();
-
-            if (!isRunningFromServlet()) {
-                new Thread(() -> {
-                  try {
-                    EmbeddedServers.initialize();
-
-                    if (embeddedServerIdentifier == null) {
-                        embeddedServerIdentifier = EmbeddedServers.defaultIdentifier();
-                    }
-
-                    server = EmbeddedServers.create(embeddedServerIdentifier,
-                                                    routes,
-                                                    exceptionMapper,
-                                                    staticFilesConfiguration,
-                                                    hasMultipleHandlers());
-
-                    server.configureWebSockets(webSocketHandlers, webSocketIdleTimeoutMillis);
-                    server.trustForwardHeaders(trustForwardHeaders);
-
-                    port = server.ignite(
-                            ipAddress,
-                            port,
-                            sslStores,
-                            maxThreads,
-                            minThreads,
-                            threadIdleTimeoutMillis);
-                  } catch (Exception e) {
-                    initExceptionHandler.accept(e);
-                  }
-                    try {
-                        initLatch.countDown();
-                        server.join();
-                    } catch (InterruptedException e) {
-                        LOG.error("server interrupted", e);
-                        Thread.currentThread().interrupt();
-                    }
-                }).start();
-            }
-            initialized = true;
-            initLatch.countDown();
-            long endTime = System.currentTimeMillis();
-            System.out.println(" ⤷ ✅ Flash server initialized in " + (endTime - startTime) + " ms");
-        }
     }
 
     private void initializeRouteMatcher() {
@@ -699,7 +694,7 @@ public final class FlashServer extends Routable {
      */
     public synchronized <T extends Exception> void exception(Class<T> exceptionClass, ExceptionHandler<? super T> handler) {
         // wrap
-        ExceptionHandlerImpl wrapper = new ExceptionHandlerImpl<T>(exceptionClass) {
+        ExceptionHandlerImpl<T> wrapper = new ExceptionHandlerImpl<>(exceptionClass) {
             @Override
             public void handle(T exception, Request request, Response response) {
                 handler.handle(exception, request, response);
@@ -763,7 +758,7 @@ public final class FlashServer extends Routable {
 
     /**
      * Sets Flash to trust the HTTP headers that are commonly used in reverse proxies.
-     * More info at https://www.eclipse.org/jetty/javadoc/current/org/eclipse/jetty/server/ForwardedRequestCustomizer.html
+     * More info at <a href="https://www.eclipse.org/jetty/javadoc/current/org/eclipse/jetty/server/ForwardedRequestCustomizer.html">...</a>
      */
     public synchronized FlashServer trustForwardHeaders() {
         if (initialized) {
@@ -776,7 +771,7 @@ public final class FlashServer extends Routable {
 
     /**
      * Sets Flash to NOT trust the HTTP headers that are commonly used in reverse proxies.
-     * More info at https://www.eclipse.org/jetty/javadoc/current/org/eclipse/jetty/server/ForwardedRequestCustomizer.html
+     * More info at <a href="https://www.eclipse.org/jetty/javadoc/current/org/eclipse/jetty/server/ForwardedRequestCustomizer.html">...</a>
      */
     public synchronized FlashServer untrustForwardHeaders() {
         if (initialized) {
@@ -785,6 +780,10 @@ public final class FlashServer extends Routable {
         this.trustForwardHeaders = false;
 
         return this;
+    }
+
+    public FlashSwaggerGenerator swagger(String title, String version, String description) {
+        return new FlashSwaggerGenerator(this, title, version, description);
     }
 
     /**
@@ -797,6 +796,20 @@ public final class FlashServer extends Routable {
             throwBeforeRouteMappingException();
         }
         this.initExceptionHandler = initExceptionHandler;
+    }
+
+    /**
+     * @return The route controllers for this FlashServer
+     */
+    public Map<String, RouteController> getRouteControllers() {
+        return routeControllers;
+    }
+
+    /**
+     * @return The server's name
+     */
+    public String getName() {
+        return name;
     }
 
     /**
