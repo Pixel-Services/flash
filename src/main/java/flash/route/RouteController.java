@@ -6,6 +6,7 @@ import flash.models.RouteInfo;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -15,6 +16,7 @@ import static flash.FlashServerHelper.exception;
 public class RouteController {
     private final String base;
     private final List<RequestHandler> handlers = new ArrayList<>();
+    private final Map<Class<? extends RequestHandler>, RequestHandler> handlerInstances = new HashMap<>();
 
     private final Map<HttpMethod, BiConsumer<String, Route>> methodMap = Map.of(
         HttpMethod.GET, FlashServerHelper::get,
@@ -35,10 +37,16 @@ public class RouteController {
     }
 
     public RouteController register(Class<? extends RequestHandler> handlerClass) {
-        if (handlers.stream().anyMatch(handler -> handler.getClass().equals(handlerClass))) {
+        if (handlerInstances.containsKey(handlerClass)) {
             throw new IllegalArgumentException("Handler for class " + handlerClass.getName() + " is already registered.");
         }
 
+        // Instantiate the handler and store it
+        RequestHandler handlerInstance = createHandlerInstance(handlerClass, null, null);
+        handlerInstances.put(handlerClass, handlerInstance);
+        handlers.add(handlerInstance);
+
+        // Extract endpoint, method, and other metadata
         String endpoint = base + "/" + getEndpoint(handlerClass);
         HttpMethod method = getMethod(handlerClass);
 
@@ -47,14 +55,26 @@ public class RouteController {
             throw new IllegalArgumentException("Unsupported HTTP method: " + method);
         }
 
-        routeRegistrar.accept(endpoint, (req, res) -> createHandlerInstance(handlerClass, req, res).handle());
+        // Register the endpoint using the pre-created handler instance
+        routeRegistrar.accept(endpoint, (req, res) -> {
+            // Retrieve the pre-created handler instance
+            RequestHandler handler = handlerInstances.get(handlerClass);
+            if (handler == null) {
+                throw new RuntimeException("Handler instance not found for " + handlerClass.getName());
+            }
 
+            // Update the request and response for the handler
+            handler.setRequestResponse(req, res);
+
+            // Handle the request using the pre-created instance
+            return handler.handle();
+        });
+
+        // Register unsupported methods
         registerUnsupportedMethods(endpoint, method);
 
-        handlers.add(createHandlerInstance(handlerClass, null, null));
         return this;
     }
-
 
     private RequestHandler createHandlerInstance(Class<? extends RequestHandler> handlerClass, Request req, Response res) {
         try {
@@ -68,6 +88,13 @@ public class RouteController {
     private String getEndpoint(Class<? extends RequestHandler> handlerClass) {
         if (handlerClass.isAnnotationPresent(RouteInfo.class)) {
             return handlerClass.getAnnotation(RouteInfo.class).endpoint();
+        }
+        throw new RuntimeException("No @RouteInfo annotation found on " + handlerClass.getName());
+    }
+
+    private boolean getEnforceNonNullBody(Class<? extends RequestHandler> handlerClass) {
+        if (handlerClass.isAnnotationPresent(RouteInfo.class)) {
+            return handlerClass.getAnnotation(RouteInfo.class).enforceNonNullBody();
         }
         throw new RuntimeException("No @RouteInfo annotation found on " + handlerClass.getName());
     }
@@ -94,3 +121,4 @@ public class RouteController {
         return handlers;
     }
 }
+
