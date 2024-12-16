@@ -36,7 +36,6 @@ public class ExpectedBodyFile {
      */
     public Part getFilePart() {
         Part filePart = null;
-
         HttpServletRequest rawRequest = requestHandler.getRequest().raw();
         rawRequest.setAttribute(Request.__MULTIPART_CONFIG_ELEMENT, new MultipartConfigElement("/temp"));
 
@@ -81,6 +80,14 @@ public class ExpectedBodyFile {
      */
     public void processFile(BiConsumer<InputStream, String> fileProcessor) {
         fileProcessor.accept(getInputStream(), getFilePart().getSubmittedFileName());
+    }
+
+    /**
+     * Get the field name
+     * @return The field name
+     */
+    public String getFieldName() {
+        return fieldName;
     }
 
     /**

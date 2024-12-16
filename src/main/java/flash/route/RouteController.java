@@ -1,8 +1,10 @@
 package flash.route;
 
 import flash.*;
+import flash.models.HandlerSpecification;
 import flash.models.RequestHandler;
 import flash.models.RouteInfo;
+import flash.swagger.SwaggerGenerator;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
@@ -57,18 +59,21 @@ public class RouteController {
 
         // Register the endpoint using the pre-created handler instance
         routeRegistrar.accept(endpoint, (req, res) -> {
-            // Retrieve the pre-created handler instance
-            RequestHandler handler = handlerInstances.get(handlerClass);
-            if (handler == null) {
-                throw new RuntimeException("Handler instance not found for " + handlerClass.getName());
-            }
-
             // Update the request and response for the handler
-            handler.setRequestResponse(req, res);
+            handlerInstance.setRequestResponse(req, res);
 
             // Handle the request using the pre-created instance
-            return handler.handle();
+            return handlerInstance.handle();
         });
+
+        HandlerSpecification specification = new HandlerSpecification(
+            handlerInstance,
+            endpoint,
+            method,
+            getEnforceNonNullBody(handlerClass)
+        );
+
+        SwaggerGenerator.addEndpoint(specification);
 
         // Register unsupported methods
         registerUnsupportedMethods(endpoint, method);
