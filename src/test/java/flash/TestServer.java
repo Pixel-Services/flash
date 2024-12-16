@@ -3,6 +3,7 @@ package flash;
 import flash.config.FlashConfiguration;
 import flash.handlers.TestHandler;
 import flash.route.RouteController;
+import flash.swagger.SwaggerGenerator;
 
 import static flash.Flash.*;
 
@@ -15,8 +16,8 @@ public class TestServer {
         webSocket("/ws", TestWebsocketHandler.class);
 
         // You can also register additional route controllers
-        new RouteController("/api")
-            .register(TestHandler.class);
+        RouteController apiController = new RouteController("/api");
+        apiController.register(TestHandler.class);
 
         // Start the server
         init();
@@ -25,5 +26,7 @@ public class TestServer {
         FlashConfiguration config = new FlashConfiguration();
         config.set("test", "Hello from the config!");
         System.out.println(config.get("test"));
+
+        SwaggerGenerator.saveSpec(System.getProperty("user.dir") + "/temp/swagger.json");
     }
 }

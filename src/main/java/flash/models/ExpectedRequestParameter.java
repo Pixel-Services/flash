@@ -19,6 +19,9 @@ public class ExpectedRequestParameter {
     public ExpectedRequestParameter(String parameterName, RequestHandler requestHandler) {
         this.parameterName = parameterName;
         this.requestHandler = requestHandler;
+
+        requestHandler.addExpectedField("parameter", parameterName);
+
         if (!requestHandler.getRequest().queryParams().contains(parameterName)) {
             requestHandler.getResponse().status(400);
             requestHandler.getResponse().body("Error: Missing expected parameter: " + parameterName);
@@ -136,6 +139,14 @@ public class ExpectedRequestParameter {
      */
     public Object getFieldValue() {
         return fieldValue;
+    }
+
+    /**
+     * Get the parameter name
+     * @return The parameter name
+     */
+    public String getParameterName() {
+        return parameterName;
     }
 
     /**

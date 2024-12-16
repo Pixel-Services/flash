@@ -17,6 +17,7 @@ import org.json.JSONObject;
  * The ExpectedBodyFile lets you assume the existence of a file in the request body and work with it
  */
 public class ExpectedBodyFile {
+    private final String fieldName;
     private final RequestHandler requestHandler;
     private final Part filePart;
 
@@ -26,7 +27,10 @@ public class ExpectedBodyFile {
      * @param requestHandler The RequestHandler object
      */
     public ExpectedBodyFile(String fieldName, RequestHandler requestHandler) {
+        this.fieldName = fieldName;
         this.requestHandler = requestHandler;
+
+        requestHandler.addExpectedField("file", fieldName);
 
         HttpServletRequest rawRequest = requestHandler.getRequest().raw();
         rawRequest.setAttribute(Request.__MULTIPART_CONFIG_ELEMENT, new MultipartConfigElement("/temp"));
@@ -70,6 +74,14 @@ public class ExpectedBodyFile {
      */
     public void processFile(BiConsumer<InputStream, String> fileProcessor) {
         fileProcessor.accept(getInputStream(), filePart.getSubmittedFileName());
+    }
+
+    /**
+     * Get the field name
+     * @return The field name
+     */
+    public String getFieldName() {
+        return fieldName;
     }
 
     /**

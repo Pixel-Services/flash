@@ -14,6 +14,8 @@ public class TestHandler extends RequestHandler {
 
     @Override
     public Object handle() {
+        new ExpectedRequestParameter("name", this);
+        new ExpectedBodyField("age", this);
         new ExpectedBodyFile("file", this)
             .processFile((inputStream, fileName) -> {
                 System.out.println("Received file: " + fileName);

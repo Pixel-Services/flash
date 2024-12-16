@@ -4,8 +4,10 @@ import flash.Flash;
 import flash.Request;
 import flash.Response;
 import flash.Route;
+import flash.models.HandlerSpecification;
 import flash.models.RequestHandler;
 import flash.models.RouteInfo;
+import flash.swagger.SwaggerGenerator;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
@@ -50,7 +52,21 @@ public class RouteController {
             throw new IllegalArgumentException("Unsupported HTTP method: " + method);
         }
 
-        routeRegistrar.accept(endpoint, (req, res) -> createHandlerInstance(handlerClass, req, res).handle());
+        routeRegistrar.accept(endpoint, (req, res) -> {
+            RequestHandler handlerInstance = createHandlerInstance(handlerClass, req, res);
+
+            HandlerSpecification handlerSpec = new HandlerSpecification(
+                handlerInstance,
+                endpoint,
+                method,
+                null,
+                getEnforceNonNullBody(handlerClass)
+            );
+
+            SwaggerGenerator.addEndpoint(handlerSpec);
+
+            return handlerInstance.handle();
+        });
 
         registerUnsupportedMethods(endpoint, method);
 
@@ -71,6 +87,13 @@ public class RouteController {
     private String getEndpoint(Class<? extends RequestHandler> handlerClass) {
         if (handlerClass.isAnnotationPresent(RouteInfo.class)) {
             return handlerClass.getAnnotation(RouteInfo.class).endpoint();
+        }
+        throw new RuntimeException("No @RouteInfo annotation found on " + handlerClass.getName());
+    }
+
+    private boolean getEnforceNonNullBody(Class<? extends RequestHandler> handlerClass) {
+        if (handlerClass.isAnnotationPresent(RouteInfo.class)) {
+            return handlerClass.getAnnotation(RouteInfo.class).enforceNonNullBody();
         }
         throw new RuntimeException("No @RouteInfo annotation found on " + handlerClass.getName());
     }

@@ -19,6 +19,9 @@ public class ExpectedBodyField {
     public ExpectedBodyField(String fieldName, RequestHandler requestHandler) {
         this.fieldName = fieldName;
         this.requestHandler = requestHandler;
+
+        requestHandler.addExpectedField("body", fieldName);
+
         JSONObject reqBody = RequestHandler.getRequestBody(requestHandler.getRequest());
 
         if (reqBody == null || reqBody.isEmpty()) {
@@ -135,6 +138,14 @@ public class ExpectedBodyField {
             throwTypeError("JSONObject");
             throw new IllegalArgumentException("Expected 'JSONObject', but got '" + fieldValue.getClass().getSimpleName() + "' in field '" + fieldName + "'");
         });
+    }
+
+    /**
+     * Get the field value as a JSONArray
+     * @return The field value as a JSONArray
+     */
+    public String getFieldName() {
+        return fieldName;
     }
 
     /**

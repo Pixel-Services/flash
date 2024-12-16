@@ -9,6 +9,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Part;
 import java.io.InputStream;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Base class for all request handlers
@@ -16,6 +18,7 @@ import java.util.Collection;
 public abstract class RequestHandler {
     protected Request req;
     protected Response res;
+    protected Map<String, String> expectedFields = new HashMap<>();
 
     /**
      * Constructor for RequestHandler
@@ -28,6 +31,15 @@ public abstract class RequestHandler {
         if (shouldEnforceNonNullBody() && !assertNonNullReqBody()) {
             throw new IllegalArgumentException("Invalid request body");
         }
+    }
+
+    public Map<String, String> getExpectedFields() {
+        return expectedFields;
+    }
+
+    // Method to add expected fields to the map
+    protected void addExpectedField(String category, String fieldName) {
+        expectedFields.put(category, fieldName);
     }
 
     /**
