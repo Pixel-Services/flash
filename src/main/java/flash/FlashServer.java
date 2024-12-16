@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,14 +46,14 @@ import static flash.globalstate.ServletFlag.isRunningFromServlet;
 
 /**
  * Represents a Flash server "session".
- * If a user wants multiple 'Flashes' in his application the method {@link Service#ignite()} should be statically
+ * If a user wants multiple 'Flashes' in his application the method {@link FlashServer#ignite()} should be statically
  * imported and used to create instances. The instance should typically be named so when prefixing the 'routing' methods
  * the semantic makes sense. For example 'http' is a good variable name since when adding routes it would be:
  * Service http = ignite();
  * ...
  * http.GET("/hello", (q, a) {@literal ->} "Hello World");
  */
-public final class Service extends Routable {
+public final class FlashServer extends Routable {
     private static final Logger LOG = LoggerFactory.getLogger("flash.Flash");
 
     public static final int FLASH_DEFAULT_PORT = 4567;
@@ -103,16 +102,16 @@ public final class Service extends Routable {
      *
      * @return the newly created object
      */
-    public static Service ignite() {
+    public static FlashServer ignite() {
         System.out.println("🔥 Igniting Flash!");
         long startTime = System.currentTimeMillis();
-        Service service = new Service();
+        FlashServer server = new FlashServer();
         long endTime = System.currentTimeMillis();
         System.out.println(" ⤷ ✅ Flash ignited in " + (endTime - startTime) + " ms");
-        return service;
+        return server;
     }
 
-    private Service() {
+    private FlashServer() {
         redirect = Redirect.create(this);
         staticFiles = new StaticFiles();
 
@@ -152,7 +151,7 @@ public final class Service extends Routable {
      * @param ipAddress The ipAddress
      * @return the object with IP address set
      */
-    public synchronized Service ipAddress(String ipAddress) {
+    public synchronized FlashServer ipAddress(String ipAddress) {
         if (initialized) {
             throwBeforeRouteMappingException();
         }
@@ -169,7 +168,7 @@ public final class Service extends Routable {
      * @param port The port number
      * @return the object with port set
      */
-    public synchronized Service port(int port) {
+    public synchronized FlashServer port(int port) {
         if (initialized) {
             throwBeforeRouteMappingException();
         }
@@ -207,10 +206,10 @@ public final class Service extends Routable {
      * @param truststorePassword the trust store password
      * @return the object with connection set to be secure
      */
-    public synchronized Service secure(String keystoreFile,
-                                       String keystorePassword,
-                                       String truststoreFile,
-                                       String truststorePassword) {
+    public synchronized FlashServer secure(String keystoreFile,
+                                           String keystorePassword,
+                                           String truststoreFile,
+                                           String truststorePassword) {
         return secure(keystoreFile, keystorePassword, null, truststoreFile, truststorePassword, false);
     }
 
@@ -231,11 +230,11 @@ public final class Service extends Routable {
      * @param truststorePassword the trust store password
      * @return the object with connection set to be secure
      */
-    public synchronized Service secure(String keystoreFile,
-                                       String keystorePassword,
-                                       String certAlias,
-                                       String truststoreFile,
-                                       String truststorePassword) {
+    public synchronized FlashServer secure(String keystoreFile,
+                                           String keystorePassword,
+                                           String certAlias,
+                                           String truststoreFile,
+                                           String truststorePassword) {
         return secure(keystoreFile, keystorePassword, certAlias, truststoreFile, truststorePassword, false);
     }
 
@@ -257,11 +256,11 @@ public final class Service extends Routable {
      * @param truststorePassword the trust store password
      * @return the object with connection set to be secure
      */
-    public synchronized Service secure(String keystoreFile,
-                                       String keystorePassword,
-                                       String truststoreFile,
-                                       String truststorePassword,
-                                       boolean needsClientCert) {
+    public synchronized FlashServer secure(String keystoreFile,
+                                           String keystorePassword,
+                                           String truststoreFile,
+                                           String truststorePassword,
+                                           boolean needsClientCert) {
         return secure(keystoreFile, keystorePassword, null, truststoreFile, truststorePassword, needsClientCert);
     }
 
@@ -284,12 +283,12 @@ public final class Service extends Routable {
      * @param truststorePassword the trust store password
      * @return the object with connection set to be secure
      */
-    public synchronized Service secure(String keystoreFile,
-                                       String keystorePassword,
-                                       String certAlias,
-                                       String truststoreFile,
-                                       String truststorePassword,
-                                       boolean needsClientCert) {
+    public synchronized FlashServer secure(String keystoreFile,
+                                           String keystorePassword,
+                                           String certAlias,
+                                           String truststoreFile,
+                                           String truststorePassword,
+                                           boolean needsClientCert) {
         if (initialized) {
             throwBeforeRouteMappingException();
         }
@@ -309,7 +308,7 @@ public final class Service extends Routable {
      * @param maxThreads max nbr of threads.
      * @return the object with the embedded web server's thread pool configured
      */
-    public synchronized Service threadPool(int maxThreads) {
+    public synchronized FlashServer threadPool(int maxThreads) {
         return threadPool(maxThreads, -1, -1);
     }
 
@@ -321,7 +320,7 @@ public final class Service extends Routable {
      * @param idleTimeoutMillis thread idle timeout (ms).
      * @return the object with the embedded web server's thread pool configured
      */
-    public synchronized Service threadPool(int maxThreads, int minThreads, int idleTimeoutMillis) {
+    public synchronized FlashServer threadPool(int maxThreads, int minThreads, int idleTimeoutMillis) {
         if (initialized) {
             throwBeforeRouteMappingException();
         }
@@ -340,7 +339,7 @@ public final class Service extends Routable {
      * @param folder the folder in classpath.
      * @return the object with folder set
      */
-    public synchronized Service staticFileLocation(String folder) {
+    public synchronized FlashServer staticFileLocation(String folder) {
         if (initialized && !isRunningFromServlet()) {
             throwBeforeRouteMappingException();
         }
@@ -360,7 +359,7 @@ public final class Service extends Routable {
      * @param externalFolder the external folder serving static files.
      * @return the object with external folder set
      */
-    public synchronized Service externalStaticFileLocation(String externalFolder) {
+    public synchronized FlashServer externalStaticFileLocation(String externalFolder) {
         if (initialized && !isRunningFromServlet()) {
             throwBeforeRouteMappingException();
         }
@@ -446,7 +445,7 @@ public final class Service extends Routable {
      * @param timeoutMillis The max idle timeout in milliseconds.
      * @return the object with max idle timeout set for WebSocket connections
      */
-    public synchronized Service webSocketIdleTimeoutMillis(long timeoutMillis) {
+    public synchronized FlashServer webSocketIdleTimeoutMillis(long timeoutMillis) {
         if (initialized) {
             throwBeforeRouteMappingException();
         }
@@ -766,7 +765,7 @@ public final class Service extends Routable {
      * Sets Flash to trust the HTTP headers that are commonly used in reverse proxies.
      * More info at https://www.eclipse.org/jetty/javadoc/current/org/eclipse/jetty/server/ForwardedRequestCustomizer.html
      */
-    public synchronized Service trustForwardHeaders() {
+    public synchronized FlashServer trustForwardHeaders() {
         if (initialized) {
             throwBeforeRouteMappingException();
         }
@@ -779,7 +778,7 @@ public final class Service extends Routable {
      * Sets Flash to NOT trust the HTTP headers that are commonly used in reverse proxies.
      * More info at https://www.eclipse.org/jetty/javadoc/current/org/eclipse/jetty/server/ForwardedRequestCustomizer.html
      */
-    public synchronized Service untrustForwardHeaders() {
+    public synchronized FlashServer untrustForwardHeaders() {
         if (initialized) {
             throwBeforeRouteMappingException();
         }
