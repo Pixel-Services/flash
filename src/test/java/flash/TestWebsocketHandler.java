@@ -7,7 +7,7 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 
 @WebSocket
-public class TestWebsocketHandler {
+    public class TestWebsocketHandler {
 
     @OnWebSocketConnect
     public void onConnect(Session session) {
