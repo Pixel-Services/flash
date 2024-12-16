@@ -1,9 +1,11 @@
 package flash.swagger;
 
+import flash.FlashServer;
 import flash.models.ExpectedBodyField;
 import flash.models.ExpectedBodyFile;
 import flash.models.ExpectedRequestParameter;
 import flash.models.HandlerSpecification;
+import flash.route.RouteController;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
@@ -16,20 +18,35 @@ import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
+import org.json.JSONObject;
 
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Map;
 
-public class SwaggerGenerator {
-    private static final OpenAPI openAPI = new OpenAPI();
+public class FlashSwaggerGenerator {
+    private final FlashServer server;
+    private final OpenAPI openAPI;
 
-    static {
-        // Initialize OpenAPI metadata
+    public FlashSwaggerGenerator(FlashServer server, String version, String title, String description) {
+        this.server = server;
+        openAPI = new OpenAPI();
         openAPI.setInfo(new Info()
-                .title("Flash API")
-                .version("1.0.0")
-                .description("Automatically generated Swagger API documentation for Flash framework."));
+                .title(title)
+                .version(version)
+                .description(description));
+    }
+
+    public JSONObject generate() {
+        Map<String, RouteController> routeControllers = server.getRouteControllers();
+        routeControllers.forEach((base, controller) -> {
+            controller.getHandlers().forEach(handler -> {
+                HandlerSpecification handlerSpec = handler.getSpecification();
+                addEndpoint(handlerSpec);
+            });
+        });
+        String json = io.swagger.v3.core.util.Json.pretty(openAPI);
+        return new JSONObject(json);
     }
 
     /**
@@ -37,16 +54,14 @@ public class SwaggerGenerator {
      *
      * @param handlerSpec The handler specification containing endpoint metadata.
      */
-    public static void addEndpoint(HandlerSpecification handlerSpec) {
+    private void addEndpoint(HandlerSpecification handlerSpec) {
         // Ensure the path exists in the OpenAPI Paths object
         openAPI.setPaths(openAPI.getPaths() != null ? openAPI.getPaths() : new Paths());
         PathItem pathItem = openAPI.getPaths().computeIfAbsent(handlerSpec.getEndpoint(), k -> new PathItem());
 
         // Create the operation for the HTTP method
         Operation operation = new Operation()
-                .summary("Handler for " + handlerSpec.getEndpoint())
-                .description("Automatically generated endpoint based on HandlerSpecification")
-                .responses(new ApiResponses());
+            .responses(new ApiResponses());
 
         // Add expected values (parameters or body)
         Map<String, ExpectedRequestParameter> expectedRequestParameters = handlerSpec.getExpectedRequestParameters();
@@ -54,13 +69,13 @@ public class SwaggerGenerator {
         Map<String, ExpectedBodyFile> expectedBodyFiles = handlerSpec.getExpectedBodyFiles();
 
         expectedRequestParameters.forEach((paramName, expectedParam) ->
-                operation.addParametersItem(createQueryParameter(paramName))
+            operation.addParametersItem(createQueryParameter(paramName))
         );
         expectedBodyFields.forEach((fieldName, expectedField) ->
-                operation.setRequestBody(createJsonBody(fieldName))
+            operation.setRequestBody(createJsonBody(fieldName))
         );
         expectedBodyFiles.forEach((fieldName, expectedFile) ->
-                operation.setRequestBody(createFileBody(fieldName))
+            operation.setRequestBody(createFileBody(fieldName))
         );
 
         // Map the method to the path
@@ -68,20 +83,6 @@ public class SwaggerGenerator {
 
         // Update the paths in the OpenAPI spec
         openAPI.getPaths().addPathItem(handlerSpec.getEndpoint(), pathItem);
-    }
-
-    /**
-     * Saves the generated OpenAPI specification to a file.
-     *
-     * @param filePath The file path where the specification will be saved.
-     */
-    public static void saveSpec(String filePath) {
-        try (FileWriter writer = new FileWriter(filePath)) {
-            String json = io.swagger.v3.core.util.Json.pretty(openAPI);
-            writer.write(json);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to save Swagger spec", e);
-        }
     }
 
     // Helper methods for creating OpenAPI components
@@ -98,8 +99,7 @@ public class SwaggerGenerator {
                 .name(paramName)
                 .in("query")
                 .schema(new Schema<>().type("String, casted to the correct type"))
-                .required(true)
-                .description("The query parameter " + paramName);
+                .required(true);
     }
 
     private static RequestBody createJsonBody(String fieldName) {

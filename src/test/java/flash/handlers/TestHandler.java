@@ -5,7 +5,7 @@ import flash.Response;
 import flash.models.*;
 import flash.route.HttpMethod;
 
-@RouteInfo(endpoint = "test", method = HttpMethod.GET, enforceNonNullBody = false)
+@RouteInfo(endpoint = "/test", method = HttpMethod.GET, enforceNonNullBody = false)
 public class TestHandler extends RequestHandler {
     private final ExpectedRequestParameter p1;
     private final ExpectedRequestParameter p2;
