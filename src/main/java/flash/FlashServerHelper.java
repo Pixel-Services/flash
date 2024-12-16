@@ -21,7 +21,7 @@ import flash.routematch.RouteMatch;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static flash.Service.ignite;
+import static flash.FlashServer.ignite;
 
 /**
  * The main building block of a Flash application is a set of routes. A route is
@@ -41,20 +41,20 @@ import static flash.Service.ignite;
  *
  * @author Per Wendel
  */
-public class Flash {
+public class FlashServerHelper {
 
     // Hide constructor
-    protected Flash() {
+    protected FlashServerHelper() {
     }
 
     /**
      * Initializes singleton.
      */
     private static class SingletonHolder {
-        private static final Service INSTANCE = ignite();
+        private static final FlashServer INSTANCE = ignite();
     }
 
-    private static Service getInstance() {
+    private static FlashServer getInstance() {
         return SingletonHolder.INSTANCE;
     }
 
@@ -64,9 +64,9 @@ public class Flash {
     public static final Redirect redirect = getInstance().redirect;
 
     /**
-     * Statically import this for static files utility functionality, see {@link flash.Service.StaticFiles}
+     * Statically import this for static files utility functionality, see {@link FlashServer.StaticFiles}
      */
-    public static final Service.StaticFiles staticFiles = getInstance().staticFiles;
+    public static final FlashServer.StaticFiles staticFiles = getInstance().staticFiles;
 
     /**
      * Add a path-prefix to the routes declared in the routeGroup
@@ -1178,7 +1178,7 @@ public class Flash {
      * Sets the folder in classpath serving static files. Observe: this method
      * must be called before all other methods.
      * -
-     * Note: contemplate changing tonew static files paradigm {@link flash.Service.StaticFiles}
+     * Note: contemplate changing tonew static files paradigm {@link FlashServer.StaticFiles}
      *
      * @param folder the folder in classpath.
      */
@@ -1190,7 +1190,7 @@ public class Flash {
      * Sets the external folder serving static files. <b>Observe: this method
      * must be called before all other methods.</b>
      * -
-     * Note: contemplate use of new static files paradigm {@link flash.Service.StaticFiles}
+     * Note: contemplate use of new static files paradigm {@link FlashServer.StaticFiles}
      *
      * @param externalFolder the external folder serving static files.
      */

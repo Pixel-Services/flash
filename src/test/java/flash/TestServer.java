@@ -3,7 +3,7 @@ package flash;
 import flash.config.FlashConfiguration;
 import flash.route.RouteController;
 
-import static flash.Flash.*;
+import static flash.FlashServerHelper.*;
 
 public class TestServer {
     public static void main(String[] args) {

@@ -33,7 +33,7 @@ To include Flash in your project, add the following dependency and repository to
 Here’s a simple example of a Flash application:
 
 ```java
-import static flash.Flash.*;
+import static flash.FlashServerHelper.*;
 
 public class HelloWorld {
     public static void main(String[] args) {

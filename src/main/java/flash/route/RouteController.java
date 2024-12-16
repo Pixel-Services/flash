@@ -1,9 +1,6 @@
 package flash.route;
 
-import flash.Flash;
-import flash.Request;
-import flash.Response;
-import flash.Route;
+import flash.*;
 import flash.models.RequestHandler;
 import flash.models.RequestMethod;
 import flash.models.RouteInfo;
@@ -14,20 +11,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
-import static flash.Flash.exception;
+import static flash.FlashServerHelper.exception;
 
 public class RouteController {
     private final String base;
     private final List<RequestHandler> handlers = new ArrayList<>();
 
     private final Map<RequestMethod, BiConsumer<String, Route>> methodMap = Map.of(
-        RequestMethod.GET, Flash::get,
-        RequestMethod.POST, Flash::post,
-        RequestMethod.PUT, Flash::put,
-        RequestMethod.PATCH, Flash::patch,
-        RequestMethod.DELETE, Flash::delete,
-        RequestMethod.HEAD, Flash::head,
-        RequestMethod.OPTIONS, Flash::options
+        RequestMethod.GET, FlashServerHelper::get,
+        RequestMethod.POST, FlashServerHelper::post,
+        RequestMethod.PUT, FlashServerHelper::put,
+        RequestMethod.PATCH, FlashServerHelper::patch,
+        RequestMethod.DELETE, FlashServerHelper::delete,
+        RequestMethod.HEAD, FlashServerHelper::head,
+        RequestMethod.OPTIONS, FlashServerHelper::options
     );
 
     public RouteController(String base) {
