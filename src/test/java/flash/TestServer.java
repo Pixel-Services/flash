@@ -4,6 +4,7 @@ import flash.config.FlashConfiguration;
 import flash.handlers.TestHandler;
 import flash.models.RequestHandler;
 import flash.route.RouteController;
+import flash.swagger.SwaggerGenerator;
 
 import java.util.List;
 
@@ -21,7 +22,8 @@ public class TestServer {
         RouteController apiController = new RouteController("/api");
 
         apiController.register(TestHandler.class);
-        List<RequestHandler> handlers = apiController.getHandlers();
+        SwaggerGenerator.saveSpec(System.getProperty("user.dir") + "/temp/swagger.json");
+
 
         // Start the server
         init();

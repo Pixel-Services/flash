@@ -1,27 +1,25 @@
 package flash.models;
 
-import flash.models.*;
 import flash.route.HttpMethod;
 
-import java.util.HashMap;
 import java.util.Map;
 
 public class HandlerSpecification {
     private final String endpoint;
     private final HttpMethod method;
-    private final Map<String, String> expectedValues;
-    private final String responseType;
+    private final Map<String, ExpectedRequestParameter> expectedRequestParameters;
+    private final Map<String, ExpectedBodyField> expectedBodyFields;
+    private final Map<String, ExpectedBodyFile> expectedBodyFiles;
     private final boolean enforcedNonNullBody;
 
-    public HandlerSpecification(RequestHandler requestHandler, String endpoint, HttpMethod method, String responseType, boolean enforcedNonNullBody) {
+    public HandlerSpecification(RequestHandler requestHandler, String endpoint, HttpMethod method, boolean enforcedNonNullBody) {
         this.endpoint = endpoint;
         this.method = method;
-        this.responseType = responseType;
         this.enforcedNonNullBody = enforcedNonNullBody;
 
-        Map<String, String> expectedFields = requestHandler.getExpectedFields();
-
-        this.expectedValues = new HashMap<>(expectedFields);
+        this.expectedRequestParameters = requestHandler.getExpectedRequestParameters();
+        this.expectedBodyFields = requestHandler.getExpectedBodyFields();
+        this.expectedBodyFiles = requestHandler.getExpectedBodyFiles();
     }
 
     public String getEndpoint() {
@@ -32,26 +30,31 @@ public class HandlerSpecification {
         return method;
     }
 
-    public Map<String, String> getExpectedValues() {
-        return expectedValues;
-    }
-
-    public String getResponseType() {
-        return responseType;
-    }
-
     public boolean isEnforcedNonNullBody() {
         return enforcedNonNullBody;
+    }
+
+    public Map<String, ExpectedRequestParameter> getExpectedRequestParameters() {
+        return expectedRequestParameters;
+    }
+
+    public Map<String, ExpectedBodyField> getExpectedBodyFields() {
+        return expectedBodyFields;
+    }
+
+    public Map<String, ExpectedBodyFile> getExpectedBodyFiles() {
+        return expectedBodyFiles;
     }
 
     @Override
     public String toString() {
         return "HandlerSpecification{" +
-            "endpoint='" + endpoint + '\'' +
-            ", method=" + method +
-            ", expectedValues=" + expectedValues +
-            ", responseType='" + responseType + '\'' +
-            ", enforcedNonNullBody=" + enforcedNonNullBody +
-            '}';
+                "endpoint='" + endpoint + '\'' +
+                ", method=" + method +
+                ", expectedRequestParameters=" + expectedRequestParameters +
+                ", expectedBodyFields=" + expectedBodyFields +
+                ", expectedBodyFiles=" + expectedBodyFiles +
+                ", enforcedNonNullBody=" + enforcedNonNullBody +
+                '}';
     }
 }

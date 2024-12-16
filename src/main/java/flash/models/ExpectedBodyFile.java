@@ -36,9 +36,6 @@ public class ExpectedBodyFile {
      */
     public Part getFilePart() {
         Part filePart = null;
-
-        requestHandler.addExpectedField("file", fieldName);
-
         HttpServletRequest rawRequest = requestHandler.getRequest().raw();
         rawRequest.setAttribute(Request.__MULTIPART_CONFIG_ELEMENT, new MultipartConfigElement("/temp"));
 
