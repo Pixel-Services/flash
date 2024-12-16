@@ -13,6 +13,8 @@ public class misc {
             } else if (clazz == Integer.class) {
                 if (fieldValue instanceof Integer) {
                     return clazz.cast(fieldValue);
+                } else if (fieldValue instanceof String) {
+                    return clazz.cast(Integer.parseInt((String) fieldValue));
                 } else {
                     return clazz.cast(Integer.parseInt(fieldValue.toString()));
                 }
@@ -25,30 +27,40 @@ public class misc {
             } else if (clazz == Long.class) {
                 if (fieldValue instanceof Long) {
                     return clazz.cast(fieldValue);
+                } else if (fieldValue instanceof String) {
+                    return clazz.cast(Long.parseLong((String) fieldValue));
                 } else {
                     return clazz.cast(Long.parseLong(fieldValue.toString()));
                 }
             } else if (clazz == Double.class) {
                 if (fieldValue instanceof Double) {
                     return clazz.cast(fieldValue);
+                } else if (fieldValue instanceof String) {
+                    return clazz.cast(Double.parseDouble((String) fieldValue));
                 } else {
                     return clazz.cast(Double.parseDouble(fieldValue.toString()));
                 }
             } else if (clazz == Float.class) {
                 if (fieldValue instanceof Float) {
                     return clazz.cast(fieldValue);
+                } else if (fieldValue instanceof String) {
+                    return clazz.cast(Float.parseFloat((String) fieldValue));
                 } else {
                     return clazz.cast(Float.parseFloat(fieldValue.toString()));
                 }
             } else if (clazz == Byte.class) {
                 if (fieldValue instanceof Byte) {
                     return clazz.cast(fieldValue);
+                } else if (fieldValue instanceof String) {
+                    return clazz.cast(Byte.parseByte((String) fieldValue));
                 } else {
                     return clazz.cast(Byte.parseByte(fieldValue.toString()));
                 }
             } else if (clazz == Short.class) {
                 if (fieldValue instanceof Short) {
                     return clazz.cast(fieldValue);
+                } else if (fieldValue instanceof String) {
+                    return clazz.cast(Short.parseShort((String) fieldValue));
                 } else {
                     return clazz.cast(Short.parseShort(fieldValue.toString()));
                 }
@@ -58,16 +70,10 @@ public class misc {
                 } else {
                     return clazz.cast(new JSONObject(fieldValue.toString()));
                 }
-            } else if (clazz == JSONArray.class) {
-                if (fieldValue instanceof JSONArray) {
-                    return clazz.cast(fieldValue);
-                } else {
-                    return clazz.cast(new JSONArray(fieldValue.toString()));
-                }
             }
         } catch (Exception e) {
             if (onError != null) {
-                onError.accept(e); // Call the callback with the exception
+                onError.accept(e);
             } else {
                 throw new IllegalArgumentException("Error parsing field: " + e.getMessage(), e);
             }

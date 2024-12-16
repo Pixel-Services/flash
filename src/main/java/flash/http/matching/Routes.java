@@ -36,10 +36,10 @@ final class Routes {
         Object target = null;
         if (match != null) {
             target = match.getTarget();
-        } else if (context.httpMethod() == HttpMethod.head && context.body().notSet()) {
-            // See if get is mapped to provide default head mapping
+        } else if (context.httpMethod() == HttpMethod.HEAD && context.body().notSet()) {
+            // See if GET is mapped to provide default HEAD mapping
             content =
-                    context.routeMatcher().find(HttpMethod.get, context.uri(), context.acceptType())
+                    context.routeMatcher().find(HttpMethod.GET, context.uri(), context.acceptType())
                             != null ? "" : null;
         }
 

@@ -152,8 +152,8 @@ public abstract class StringUtils {
      * Delete any character in a given String.
      *
      * @param inString      the original String
-     * @param charsToDelete a set of characters to delete.
-     *                      E.g. "az\n" will delete 'a's, 'z's and new lines.
+     * @param charsToDelete a set of characters to DELETE.
+     *                      E.g. "az\n" will DELETE 'a's, 'z's and new lines.
      * @return the resulting String
      */
     public static String deleteAny(String inString, String charsToDelete) {
@@ -305,8 +305,8 @@ public abstract class StringUtils {
      * @param str           the input String
      * @param delimiter     the delimiter between elements (this is a single delimiter,
      *                      rather than a bunch individual delimiter characters)
-     * @param charsToDelete a set of characters to delete. Useful for deleting unwanted
-     *                      line breaks: e.g. "\r\n\f" will delete all new lines and line feeds in a String.
+     * @param charsToDelete a set of characters to DELETE. Useful for deleting unwanted
+     *                      line breaks: e.g. "\r\n\f" will DELETE all new lines and line feeds in a String.
      * @return an array of the tokens in the list
      */
     public static String[] delimitedListToStringArray(String str, String delimiter, String charsToDelete) {

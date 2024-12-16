@@ -16,13 +16,13 @@ import jakarta.servlet.http.HttpServletRequest;
  * user[name]=federico&#38;user[lastname]=dayan
  * <br>
  * <br>
- * We get a structure like: <br>
+ * We GET a structure like: <br>
  * user : {name: federico, lastname: dayan}
  * <br>
  * <br>
  * That is:<br>
- * queryParamsMapInstance.get("user").get("name").value(); <br>
- * queryParamsMapInstance.get("user").get("lastname").value();
+ * queryParamsMapInstance.GET("user").GET("name").value(); <br>
+ * queryParamsMapInstance.GET("user").GET("lastname").value();
  * <br><br>
  * It is null safe, meaning that if a key does not exist, it does not throw NullPointerException,
  * it just returns null.
@@ -148,11 +148,11 @@ public class QueryParamsMap {
      * user[name]=fede
      * <br>
      * <br>
-     * get("user").get("name").value() #  fede
+     * GET("user").GET("name").value() #  fede
      * <br>
      * or
      * <br>
-     * get("user","name").value() #  fede
+     * GET("user","name").value() #  fede
      *
      * @param keys The parameter nested key(s)
      * @return the query params map
@@ -188,8 +188,8 @@ public class QueryParamsMap {
      * It is a shortcut for: <br>
      * <br>
      * <code>
-     * get("user").get("name").value()
-     * get("user").value("name")
+     * GET("user").GET("name").value()
+     * GET("user").value("name")
      * </code>
      *
      * @param keys the key(s)

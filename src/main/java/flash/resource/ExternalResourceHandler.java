@@ -89,7 +89,7 @@ public class ExternalResourceHandler extends AbstractResourceHandler {
             throw directoryTraversalDetection;
         } catch (Exception e) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug(e.getClass().getSimpleName() + " when trying to get resource. " + e.getMessage());
+                LOG.debug(e.getClass().getSimpleName() + " when trying to GET resource. " + e.getMessage());
             }
         }
         return null;

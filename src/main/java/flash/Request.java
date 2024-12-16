@@ -80,7 +80,7 @@ public class Request {
     //    request.url               # "http://example.com/example/foo"      DONE
     //    request.ip                # client IP address                     DONE
     //    request.env               # raw env hash handed in by Rack,       DONE
-    //    request.get?              # true (similar methods for other verbs)
+    //    request.GET?              # true (similar methods for other verbs)
     //    request.secure?           # false (would be true over ssl)
     //    request.forwarded?        # true (if running behind a reverse proxy)
     //    request.cookies           # hash of browser cookies,              DONE
@@ -138,7 +138,7 @@ public class Request {
 
     /**
      * Returns the value of the provided route pattern parameter.
-     * Example: parameter 'name' from the following pattern: (get '/hello/:name')
+     * Example: parameter 'name' from the following pattern: (GET '/hello/:name')
      *
      * @param param the param
      * @return null if the given param is null or not found

@@ -156,7 +156,7 @@ public class Routes {
         }
 
         // Catches invalid input and throws IllegalArgumentException
-        HttpMethod method = HttpMethod.valueOf(httpMethod);
+        HttpMethod method = HttpMethod.valueOf(httpMethod.toUpperCase());
 
         return removeRoute(method, path);
     }
@@ -275,10 +275,10 @@ public class Routes {
             String httpMethod = route.substring(0, singleQuoteIndex).trim().toLowerCase(); // NOSONAR
             String url = route.substring(singleQuoteIndex + 1, route.length() - 1).trim(); // NOSONAR
 
-            // Use special enum stuff to get from value
+            // Use special enum stuff to GET from value
             HttpMethod method;
             try {
-                method = HttpMethod.valueOf(httpMethod);
+                method = HttpMethod.valueOf(httpMethod.toUpperCase());
             } catch (IllegalArgumentException e) {
                 LOG.error("The @Route value: "
                               + route

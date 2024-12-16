@@ -23,7 +23,7 @@ class Base64 {
 
     /**
      * @param toEncodeContent the String to be encode
-     * @return String after encode
+     * @return String AFTER encode
      */
     public static String encode(String toEncodeContent) {
         if (toEncodeContent == null) {
@@ -34,7 +34,7 @@ class Base64 {
 
     /**
      * @param toDecodeContent the String to be decode
-     * @return String after decode
+     * @return String AFTER decode
      */
     public static String decode(String toDecodeContent) {
         if (toDecodeContent == null) {
