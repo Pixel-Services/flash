@@ -2,7 +2,6 @@ package flash.route;
 
 import flash.*;
 import flash.models.RequestHandler;
-import flash.models.RequestMethod;
 import flash.models.RouteInfo;
 
 import java.lang.reflect.Constructor;
@@ -17,14 +16,14 @@ public class RouteController {
     private final String base;
     private final List<RequestHandler> handlers = new ArrayList<>();
 
-    private final Map<RequestMethod, BiConsumer<String, Route>> methodMap = Map.of(
-        RequestMethod.GET, FlashServerHelper::get,
-        RequestMethod.POST, FlashServerHelper::post,
-        RequestMethod.PUT, FlashServerHelper::put,
-        RequestMethod.PATCH, FlashServerHelper::patch,
-        RequestMethod.DELETE, FlashServerHelper::delete,
-        RequestMethod.HEAD, FlashServerHelper::head,
-        RequestMethod.OPTIONS, FlashServerHelper::options
+    private final Map<HttpMethod, BiConsumer<String, Route>> methodMap = Map.of(
+        HttpMethod.GET, FlashServerHelper::get,
+        HttpMethod.POST, FlashServerHelper::post,
+        HttpMethod.PUT, FlashServerHelper::put,
+        HttpMethod.PATCH, FlashServerHelper::patch,
+        HttpMethod.DELETE, FlashServerHelper::delete,
+        HttpMethod.HEAD, FlashServerHelper::head,
+        HttpMethod.OPTIONS, FlashServerHelper::options
     );
 
     public RouteController(String base) {
@@ -41,7 +40,7 @@ public class RouteController {
         }
 
         String endpoint = base + "/" + getEndpoint(handlerClass);
-        RequestMethod method = getMethod(handlerClass);
+        HttpMethod method = getMethod(handlerClass);
 
         BiConsumer<String, Route> routeRegistrar = methodMap.get(method);
         if (routeRegistrar == null) {
@@ -73,14 +72,14 @@ public class RouteController {
         throw new RuntimeException("No @RouteInfo annotation found on " + handlerClass.getName());
     }
 
-    private RequestMethod getMethod(Class<? extends RequestHandler> handlerClass) {
+    private HttpMethod getMethod(Class<? extends RequestHandler> handlerClass) {
         if (handlerClass.isAnnotationPresent(RouteInfo.class)) {
             return handlerClass.getAnnotation(RouteInfo.class).method();
         }
         throw new RuntimeException("No @RouteInfo annotation found on " + handlerClass.getName());
     }
 
-    private void registerUnsupportedMethods(String endpoint, RequestMethod correctMethod) {
+    private void registerUnsupportedMethods(String endpoint, HttpMethod correctMethod) {
         methodMap.forEach((method, registerMethod) -> {
             if (method != correctMethod) {
                 registerMethod.accept(endpoint, (req, res) -> {

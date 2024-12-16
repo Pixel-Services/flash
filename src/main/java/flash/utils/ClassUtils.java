@@ -206,7 +206,7 @@ public abstract class ClassUtils {
                 try {
                     return classLoaderToUse.loadClass(innerClassName);
                 } catch (ClassNotFoundException ex2) {
-                    // swallow - let original exception get through
+                    // swallow - let original exception GET through
                 }
             }
             throw ex;

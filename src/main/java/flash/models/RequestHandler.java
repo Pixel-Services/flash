@@ -9,12 +9,19 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Part;
 import java.io.InputStream;
 import java.util.Collection;
-import java.util.Map;
 
+/**
+ * Base class for all request handlers
+ */
 public abstract class RequestHandler {
     protected Request req;
     protected Response res;
 
+    /**
+     * Constructor for RequestHandler
+     * @param req The Request object
+     * @param res The Response object
+     */
     public RequestHandler(Request req, Response res) {
         this.req = req;
         this.res = res;
@@ -23,11 +30,19 @@ public abstract class RequestHandler {
         }
     }
 
+    /**
+     * Check if the enforceNonNullBody flag is set in the RouteInfo annotation
+     * @return True if the enforceNonNullBody flag is set, false otherwise
+     */
     private boolean shouldEnforceNonNullBody() {
         RouteInfo routeInfo = this.getClass().getAnnotation(RouteInfo.class);
         return routeInfo != null && routeInfo.enforceNonNullBody();
     }
 
+    /**
+     * Assert that the request body is not null
+     * @return True if the request body is not null, false otherwise
+     */
     private boolean assertNonNullReqBody() {
         JSONObject reqBody = getRequestBody();
         if (reqBody == null || reqBody.isEmpty()) {
@@ -38,6 +53,10 @@ public abstract class RequestHandler {
         return true;
     }
 
+    /**
+     * Get the request body as a JSONObject
+     * @return The request body as a JSONObject
+     */
     public JSONObject getRequestBody() {
         JSONObject json = new JSONObject();
         try {
@@ -60,13 +79,16 @@ public abstract class RequestHandler {
             return json;
 
         } catch (ServletException e) {
-            // Handle the case where the request body is null or unsupported content type
             return json; // Return empty JSON object
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid request body", e);
         }
     }
 
+    /**
+     * Get the request object
+     * @return The request object
+     */
     public static JSONObject getRequestBody(Request req) {
         JSONObject json = new JSONObject();
         try {
@@ -84,7 +106,6 @@ public abstract class RequestHandler {
             return json;
 
         } catch (ServletException e) {
-            // Handle the case where the request body is null or unsupported content type
             return json; // Return empty JSON object
         } catch (Exception e) {
             e.printStackTrace();
@@ -92,13 +113,25 @@ public abstract class RequestHandler {
         }
     }
 
+    /**
+     * Get the request object
+     * @return The request object
+     */
     public Request getRequest() {
         return req;
     }
 
+    /**
+     * Get the response object
+     * @return The response object
+     */
     public Response getResponse() {
         return res;
     }
 
+    /**
+     * Handle the request
+     * @return The response object
+     */
     public abstract Object handle();
 }

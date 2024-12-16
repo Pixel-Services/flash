@@ -40,7 +40,7 @@ public class MimeParse {
 
     /**
      * Carves up a mime-type and returns a ParseResults object
-     * For example, the media range 'application/xhtml;q=0.5' would get parsed
+     * For example, the media range 'application/xhtml;q=0.5' would GET parsed
      * into:
      * ('application', 'xhtml', {'q', '0.5'})
      */
@@ -79,7 +79,7 @@ public class MimeParse {
 
     /**
      * Carves up a media range and returns a ParseResults.
-     * For example, the media range 'application/*;q=0.5' would get parsed into:
+     * For example, the media range 'application/*;q=0.5' would GET parsed into:
      * ('application', '*', {'q', '0.5'})
      * In addition this function also guarantees that there is a value for 'q'
      * in the params dictionary, filling it in with a proper default if

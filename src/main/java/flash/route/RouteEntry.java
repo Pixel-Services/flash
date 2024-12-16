@@ -43,7 +43,7 @@ class RouteEntry {
     }
 
     boolean matches(HttpMethod httpMethod, String path) {
-        if ((httpMethod == HttpMethod.before || httpMethod == HttpMethod.after || httpMethod == HttpMethod.afterafter)
+        if ((httpMethod == HttpMethod.BEFORE || httpMethod == HttpMethod.AFTER || httpMethod == HttpMethod.AFTERAFTER)
                 && (this.httpMethod == httpMethod)
                 && this.path.equals(FlashUtils.ALL_PATHS)) {
             // Is filter and matches all

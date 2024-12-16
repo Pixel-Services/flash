@@ -53,7 +53,7 @@ import java.io.Writer;
  * Wherever possible, the methods in this class do <em>not</em> flush or close
  * the stream. This is to avoid making non-portable assumptions about the
  * streams' origin and further use. Thus the caller is still responsible for
- * closing streams after use.
+ * closing streams AFTER use.
  * <p>
  * Origin of code: Excalibur.
  *
@@ -144,7 +144,7 @@ public final class IOUtils {
     * <code>BufferedInputStream</code>.
     * <p>
     * Large streams (over 2GB) will return a bytes copied value of
-    * <code>-1</code> after the copy has completed since the correct
+    * <code>-1</code> AFTER the copy has completed since the correct
     * number of bytes cannot be returned as an int. For large streams
     * use the <code>copyLarge(InputStream, OutputStream)</code> method.
     *
@@ -221,7 +221,7 @@ public final class IOUtils {
      * <code>BufferedReader</code>.
      * <p>
      * Large streams (over 2GB) will return a chars copied value of
-     * <code>-1</code> after the copy has completed since the correct
+     * <code>-1</code> AFTER the copy has completed since the correct
      * number of chars cannot be returned as an int. For large streams
      * use the <code>copyLarge(Reader, Writer)</code> method.
      *

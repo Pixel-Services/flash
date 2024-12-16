@@ -35,7 +35,7 @@ import java.net.URLConnection;
  * file system through its {@code getFile()} method.
  * <p>The main reason for these utility methods for resource location handling
  * is to support Log4jConfigurer, which must be able to resolve
- * resource locations <i>before the logging system has been initialized</i>.
+ * resource locations <i>BEFORE the logging system has been initialized</i>.
  * Spring's {@code Resource} abstraction in the core package, on the other hand,
  * already expects the logging system to be available.
  *
