@@ -3,6 +3,7 @@ package flash.route;
 import flash.*;
 import flash.models.HandlerSpecification;
 import flash.models.RequestHandler;
+import flash.models.RequestHandlerInterceptor;
 import flash.models.RouteInfo;
 
 import java.lang.reflect.Constructor;
@@ -12,19 +13,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
-import static flash.FlashServerHelper.exception;
-
 public class RouteController {
     private final FlashServer server;
     private final String base;
     private final Map<HttpMethod, BiConsumer<String, Route>> methodMap;
     private final List<RequestHandler> handlers = new ArrayList<>();
     private final Map<Class<? extends RequestHandler>, RequestHandler> handlerInstances = new HashMap<>();
+    private final List<RequestHandlerInterceptor> routeInterceptors = new ArrayList<>();
+    private final Map<Class<? extends RequestHandler>, List<RequestHandlerInterceptor>> handlerInterceptors = new HashMap<>();
 
     public RouteController(String base, FlashServer server) {
         this.server = server;
         this.base = base;
-        exception(IllegalArgumentException.class, (exception, req, res) -> {
+
+        server.exception(IllegalArgumentException.class, (exception, req, res) -> {
             res.status(400);
             res.body(exception.getMessage());
         });
@@ -41,16 +43,19 @@ public class RouteController {
     }
 
     public RouteController register(Class<? extends RequestHandler> handlerClass) {
+        return register(handlerClass, new ArrayList<>());
+    }
+
+    public RouteController register(Class<? extends RequestHandler> handlerClass, List<RequestHandlerInterceptor> interceptors) {
         if (handlerInstances.containsKey(handlerClass)) {
             throw new IllegalArgumentException("Handler for class " + handlerClass.getName() + " is already registered.");
         }
 
-        // Instantiate the handler and store it
         RequestHandler handlerInstance = createHandlerInstance(handlerClass);
         handlerInstances.put(handlerClass, handlerInstance);
         handlers.add(handlerInstance);
+        handlerInterceptors.put(handlerClass, interceptors);
 
-        // Extract endpoint, method, and other metadata
         String endpoint = base + getEndpoint(handlerClass);
         HttpMethod method = getMethod(handlerClass);
 
@@ -59,12 +64,24 @@ public class RouteController {
             throw new IllegalArgumentException("Unsupported HTTP method: " + method);
         }
 
-        // Register the endpoint using the pre-created handler instance
         routeRegistrar.accept(endpoint, (req, res) -> {
-            // Update the request and response for the handler
+            // Execute route-level interceptors
+            for (RequestHandlerInterceptor interceptor : routeInterceptors) {
+                if (!interceptor.preHandle(req, res)) {
+                    return res.body();
+                }
+            }
+
+            // Execute handler-level interceptors
+            for (RequestHandlerInterceptor interceptor : handlerInterceptors.get(handlerClass)) {
+                if (!interceptor.preHandle(req, res)) {
+                    return res.body();
+                }
+            }
+
+            // Update req, res for the handler
             handlerInstance.setRequestResponse(req, res);
 
-            // Handle the request using the pre-created instance
             return handlerInstance.handle();
         });
 
@@ -77,9 +94,13 @@ public class RouteController {
 
         handlerInstance.setSpecification(specification);
 
-        // Register unsupported methods
         registerUnsupportedMethods(endpoint, method);
 
+        return this;
+    }
+
+    public RouteController addInterceptor(RequestHandlerInterceptor interceptor) {
+        routeInterceptors.add(interceptor);
         return this;
     }
 
@@ -128,4 +149,3 @@ public class RouteController {
         return handlers;
     }
 }
-
