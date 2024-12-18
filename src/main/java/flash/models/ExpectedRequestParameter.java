@@ -8,6 +8,7 @@ import org.json.JSONObject;
  */
 public class ExpectedRequestParameter {
     private final String parameterName;
+    private final String description;
     private final RequestHandler requestHandler;
 
     /**
@@ -17,6 +18,18 @@ public class ExpectedRequestParameter {
      */
     public ExpectedRequestParameter(String parameterName, RequestHandler requestHandler) {
         this.parameterName = parameterName;
+        this.requestHandler = requestHandler;
+        this.description = null;
+    }
+
+    /**
+     * Constructor for ExpectedRequestParameter
+     * @param parameterName The name of the parameter to be retrieved from the request
+     * @param requestHandler The RequestHandler object
+     */
+    public ExpectedRequestParameter(String parameterName, String description, RequestHandler requestHandler) {
+        this.parameterName = parameterName;
+        this.description = description;
         this.requestHandler = requestHandler;
     }
 
@@ -139,6 +152,14 @@ public class ExpectedRequestParameter {
         return misc.parseField(getFieldValue(), JSONObject.class, e -> {
             throwTypeError("JSONObject");
         });
+    }
+
+    /**
+     * Get description of the field
+     * @return The description of the field
+     */
+    public String getDescription() {
+        return description;
     }
 
     /**

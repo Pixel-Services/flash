@@ -9,6 +9,7 @@ import org.json.JSONObject;
 public class ExpectedBodyField {
     private final String fieldName;
     private final RequestHandler requestHandler;
+    private final String description;
 
     /**
      * Constructor for ExpectedBodyField
@@ -17,6 +18,19 @@ public class ExpectedBodyField {
      */
     public ExpectedBodyField(String fieldName, RequestHandler requestHandler) {
         this.fieldName = fieldName;
+        this.requestHandler = requestHandler;
+        this.description = null;
+    }
+
+    /**
+     * Constructor for ExpectedBodyField
+     * @param fieldName The name of the field to be retrieved from the request
+     * @param description The description of the field
+     * @param requestHandler The RequestHandler object
+     */
+    public ExpectedBodyField(String fieldName, String description, RequestHandler requestHandler) {
+        this.fieldName = fieldName;
+        this.description = description;
         this.requestHandler = requestHandler;
     }
 
@@ -144,6 +158,14 @@ public class ExpectedBodyField {
             throwTypeError("JSONObject");
             throw new IllegalArgumentException("Expected 'JSONObject', but got '" + fieldValue.getClass().getSimpleName() + "' in field '" + fieldName + "'");
         });
+    }
+
+    /**
+     * Get description of the field
+     * @return The description of the field
+     */
+    public String getDescription() {
+        return description;
     }
 
     /**

@@ -26,6 +26,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 
 import flash.route.RouteController;
+import flash.swagger.FlashSwaggerConfiguration;
 import flash.swagger.FlashSwaggerGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -782,9 +783,51 @@ public final class FlashServer extends Routable {
         return this;
     }
 
-    public FlashSwaggerGenerator swagger(String title, String version, String description) {
-        return new FlashSwaggerGenerator(this, title, version, description);
+    public FlashSwaggerGenerator swagger(String endpoint, FlashSwaggerConfiguration configuration) {
+        FlashSwaggerGenerator config = new FlashSwaggerGenerator(this, configuration);
+
+        // Serve the Swagger schema JSON
+        get(endpoint + "/schema.json", (req, res) -> {
+            res.status(200);
+            res.type("application/json");
+            return config.generate();
+        });
+
+        // Serve the Swagger UI HTML
+        get(endpoint, (req, res) -> {
+            res.status(200);
+            res.type("text/html");
+
+            String swaggerHtml = """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Swagger UI</title>
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.0.0/swagger-ui.css">
+            </head>
+            <body>
+                <div id="swagger-ui"></div>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.0.0/swagger-ui-bundle.js"></script>
+                <script>
+                    window.onload = () => {
+                        const ui = SwaggerUIBundle({
+                            url: "%s/schema.json",
+                            dom_id: '#swagger-ui',
+                        });
+                    };
+                </script>
+            </body>
+            </html>
+            """;
+
+            return swaggerHtml.formatted(endpoint);
+        });
+
+        return config;
     }
+
 
     /**
      * Overrides default exception handler during initialization phase
