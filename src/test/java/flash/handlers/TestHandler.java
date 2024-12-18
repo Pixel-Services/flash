@@ -16,9 +16,9 @@ public class TestHandler extends RequestHandler {
 
     public TestHandler(Request req, Response res) {
         super(req, res);
-        p1 = expectedRequestParameter("p1");
-        p2 = expectedRequestParameter("p2");
-        token = expectedRequestParameter("token");
+        p1 = expectedRequestParameter("p1", "The first parameter");
+        p2 = expectedRequestParameter("p2", "The second parameter");
+        token = expectedRequestParameter("token", "The authentication token");
     }
 
     @Override

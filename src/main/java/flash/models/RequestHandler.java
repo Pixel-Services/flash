@@ -97,16 +97,41 @@ public abstract class RequestHandler {
     }
 
     /**
+     * Specify an expected request parameter with description
+     * @param parameterName The name of the parameter
+     * @param description The description of the parameter
+     * @return The ExpectedRequestParameter object
+     */
+    public ExpectedRequestParameter expectedRequestParameter(String parameterName, String description) {
+        if (expectedRequestParameters.containsKey(parameterName)) {
+            return expectedRequestParameters.get(parameterName);
+        }
+        ExpectedRequestParameter instance = new ExpectedRequestParameter(parameterName, description, this);
+        expectedRequestParameters.put(parameterName, instance);
+        return instance;
+    }
+
+    /**
      * Specify an expected request parameter
      * @param parameterName The name of the parameter
      * @return The ExpectedRequestParameter object
      */
     public ExpectedRequestParameter expectedRequestParameter(String parameterName) {
-        if (expectedRequestParameters.containsKey(parameterName)) {
-            return expectedRequestParameters.get(parameterName);
+        return expectedRequestParameter(parameterName, null);
+    }
+
+    /**
+     * Specify an expected body field with description
+     * @param fieldName The name of the field
+     * @param description The description of the field
+     * @return The ExpectedBodyField object
+     */
+    public ExpectedBodyField expectedBodyField(String fieldName, String description) {
+        if (expectedBodyFields.containsKey(fieldName)) {
+            return expectedBodyFields.get(fieldName);
         }
-        ExpectedRequestParameter instance = new ExpectedRequestParameter(parameterName, this);
-        expectedRequestParameters.put(parameterName, instance);
+        ExpectedBodyField instance = new ExpectedBodyField(fieldName, description, this);
+        expectedBodyFields.put(fieldName, instance);
         return instance;
     }
 
@@ -116,11 +141,21 @@ public abstract class RequestHandler {
      * @return The ExpectedBodyField object
      */
     public ExpectedBodyField expectedBodyField(String fieldName) {
-        if (expectedBodyFields.containsKey(fieldName)) {
-            return expectedBodyFields.get(fieldName);
+        return expectedBodyField(fieldName, null);
+    }
+
+    /**
+     * Specify an expected body file with description
+     * @param fieldName The name of the file
+     * @param description The description of the file
+     * @return The ExpectedBodyFile object
+     */
+    public ExpectedBodyFile expectedBodyFile(String fieldName, String description) {
+        if (expectedBodyFiles.containsKey(fieldName)) {
+            return expectedBodyFiles.get(fieldName);
         }
-        ExpectedBodyField instance = new ExpectedBodyField(fieldName, this);
-        expectedBodyFields.put(fieldName, instance);
+        ExpectedBodyFile instance = new ExpectedBodyFile(fieldName, description, this);
+        expectedBodyFiles.put(fieldName, instance);
         return instance;
     }
 
@@ -130,12 +165,7 @@ public abstract class RequestHandler {
      * @return The ExpectedBodyFile object
      */
     public ExpectedBodyFile expectedBodyFile(String fieldName) {
-        if (expectedBodyFiles.containsKey(fieldName)) {
-            return expectedBodyFiles.get(fieldName);
-        }
-        ExpectedBodyFile instance = new ExpectedBodyFile(fieldName, this);
-        expectedBodyFiles.put(fieldName, instance);
-        return instance;
+        return expectedBodyFile(fieldName, null);
     }
 
     /**
@@ -185,10 +215,18 @@ public abstract class RequestHandler {
         this.res = res;
     }
 
+    /**
+     * Get the handler specification
+     * @return The handler specification
+     */
     public HandlerSpecification getSpecification() {
         return specification;
     }
 
+    /**
+     * Sets the handler specification
+     * @param specification The handler specification
+     */
     public void setSpecification(HandlerSpecification specification) {
         this.specification = specification;
     }

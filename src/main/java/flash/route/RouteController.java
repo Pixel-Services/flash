@@ -97,40 +97,6 @@ public class RouteController {
 
         registerUnsupportedMethods(endpoint, method);
 
-        server.get("/swagger.json", (req, res) -> {
-            res.status(200);
-            res.type("application/json");
-            return server.swagger("1.0.0", server.getName() + "Swagger specifications", "http://localhost:8080/swagger.json").generate();
-        });
-
-        server.get("/swagger", (req, res) -> {
-            res.status(200);
-            res.type("text/html");
-            return """
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Swagger UI</title>
-                    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.0.0/swagger-ui.css">
-                </head>
-                <body>
-                    <div id="swagger-ui"></div>
-                    <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.0.0/swagger-ui-bundle.js"></script>
-                    <script>
-                        window.onload = () => {
-                            const ui = SwaggerUIBundle({
-                                url: '/swagger.json',
-                                dom_id: '#swagger-ui',
-                            });
-                        };
-                    </script>
-                </body>
-                </html>
-            """;
-        });
-
         return this;
     }
 

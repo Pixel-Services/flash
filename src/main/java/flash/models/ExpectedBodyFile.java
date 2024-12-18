@@ -18,6 +18,7 @@ import org.json.JSONObject;
  */
 public class ExpectedBodyFile {
     private final String fieldName;
+    private final String description;
     private final RequestHandler requestHandler;
 
     /**
@@ -27,6 +28,18 @@ public class ExpectedBodyFile {
      */
     public ExpectedBodyFile(String fieldName, RequestHandler requestHandler) {
         this.fieldName = fieldName;
+        this.requestHandler = requestHandler;
+        this.description = null;
+    }
+
+    /**
+     * Constructor for ExpectedBodyFile
+     * @param fieldName The name of the file to be retrieved from the request body
+     * @param requestHandler The RequestHandler object
+     */
+    public ExpectedBodyFile(String fieldName, String description, RequestHandler requestHandler) {
+        this.fieldName = fieldName;
+        this.description = description;
         this.requestHandler = requestHandler;
     }
 
@@ -88,6 +101,14 @@ public class ExpectedBodyFile {
      */
     public String getFieldName() {
         return fieldName;
+    }
+
+    /**
+     * Get description of the field
+     * @return The description of the field
+     */
+    public String getDescription() {
+        return description;
     }
 
     /**

@@ -18,23 +18,25 @@ import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
+import io.swagger.v3.oas.models.servers.Server;
 import org.json.JSONObject;
 
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.Map;
 
 public class FlashSwaggerGenerator {
     private final FlashServer server;
     private final OpenAPI openAPI;
+    private final FlashSwaggerConfiguration config;
 
-    public FlashSwaggerGenerator(FlashServer server, String version, String title, String description) {
+    public FlashSwaggerGenerator(FlashServer server, FlashSwaggerConfiguration config) {
         this.server = server;
+        this.config = config;
         openAPI = new OpenAPI();
         openAPI.setInfo(new Info()
-                .title(title)
-                .version(version)
-                .description(description));
+            .title(config.getTitle())
+            .version(config.getVersion())
+            .description(config.getDescription()));
+        config.getServers().forEach(url -> openAPI.addServersItem(new Server().url(url)));
     }
 
     public JSONObject generate() {
@@ -49,75 +51,76 @@ public class FlashSwaggerGenerator {
         return new JSONObject(json);
     }
 
-    /**
-     * Adds an endpoint to the OpenAPI specification based on the given HandlerSpecification.
-     *
-     * @param handlerSpec The handler specification containing endpoint metadata.
-     */
     private void addEndpoint(HandlerSpecification handlerSpec) {
-        // Ensure the path exists in the OpenAPI Paths object
         openAPI.setPaths(openAPI.getPaths() != null ? openAPI.getPaths() : new Paths());
         PathItem pathItem = openAPI.getPaths().computeIfAbsent(handlerSpec.getEndpoint(), k -> new PathItem());
 
-        // Create the operation for the HTTP method
         Operation operation = new Operation()
             .responses(new ApiResponses());
 
-        // Add expected values (parameters or body)
         Map<String, ExpectedRequestParameter> expectedRequestParameters = handlerSpec.getExpectedRequestParameters();
         Map<String, ExpectedBodyField> expectedBodyFields = handlerSpec.getExpectedBodyFields();
         Map<String, ExpectedBodyFile> expectedBodyFiles = handlerSpec.getExpectedBodyFiles();
 
         expectedRequestParameters.forEach((paramName, expectedParam) ->
-            operation.addParametersItem(createQueryParameter(paramName))
+            operation.addParametersItem(createQueryParameter(paramName, expectedParam))
         );
         expectedBodyFields.forEach((fieldName, expectedField) ->
-            operation.setRequestBody(createJsonBody(fieldName))
+            operation.setRequestBody(createJsonBody(fieldName, expectedField))
         );
         expectedBodyFiles.forEach((fieldName, expectedFile) ->
-            operation.setRequestBody(createFileBody(fieldName))
+            operation.setRequestBody(createFileBody(fieldName, expectedFile))
         );
 
-        // Map the method to the path
         setOperationForHttpMethod(pathItem, handlerSpec.getMethod(), operation);
 
-        // Update the paths in the OpenAPI spec
         openAPI.getPaths().addPathItem(handlerSpec.getEndpoint(), pathItem);
     }
 
-    // Helper methods for creating OpenAPI components
-
     private static ApiResponse createSuccessResponse() {
         return new ApiResponse()
-                .description("Success")
-                .content(new Content()
-                        .addMediaType("application/json", new MediaType().schema(new Schema<>().type("object"))));
+            .description("Success")
+            .content(new Content()
+                .addMediaType("application/json", new MediaType().schema(new Schema<>().type("object"))));
     }
 
-    private static Parameter createQueryParameter(String paramName) {
-        return new Parameter()
-                .name(paramName)
-                .in("query")
-                .schema(new Schema<>().type("String, casted to the correct type"))
-                .required(true);
+    private static Parameter createQueryParameter(String paramName, ExpectedRequestParameter exp) {
+        String description = exp.getDescription();
+        Parameter parameter = new Parameter()
+            .name(paramName)
+            .in("query")
+            .schema(new Schema<>().type("string"))
+            .required(true);
+        if (description != null && !description.isEmpty()) {
+            parameter.setDescription(description);
+        }
+        return parameter;
     }
 
-    private static RequestBody createJsonBody(String fieldName) {
+    private static RequestBody createJsonBody(String fieldName, ExpectedBodyField exp) {
+        String description = exp.getDescription();
+        Schema<?> schema = new Schema<>().type("object")
+            .addProperties(fieldName, new Schema<>().type("string"));
+        if (description != null && !description.isEmpty()) {
+            schema.setDescription(description);
+        }
         return new RequestBody()
-                .required(true)
-                .content(new Content()
-                        .addMediaType("multipart/form-data", new MediaType()
-                                .schema(new Schema<>().type("object")
-                                        .addProperties(fieldName, new Schema<>().type("Text, casted to the correct type")))));
+            .required(true)
+            .content(new Content()
+                .addMediaType("application/json", new MediaType().schema(schema)));
     }
 
-    private static RequestBody createFileBody(String fieldName) {
+    private static RequestBody createFileBody(String fieldName, ExpectedBodyFile exp) {
+        String description = exp.getDescription();
+        Schema<?> schema = new Schema<>().type("object")
+            .addProperties(fieldName, new Schema<>().type("string").format("binary"));
+        if (description != null && !description.isEmpty()) {
+            schema.setDescription(description);
+        }
         return new RequestBody()
-                .required(true)
-                .content(new Content()
-                        .addMediaType("multipart/form-data", new MediaType()
-                                .schema(new Schema<>().type("object")
-                                        .addProperties(fieldName, new Schema<>().type("file").format("binary")))));
+            .required(true)
+            .content(new Content()
+                .addMediaType("multipart/form-data", new MediaType().schema(schema)));
     }
 
     private static void setOperationForHttpMethod(PathItem pathItem, flash.route.HttpMethod method, Operation operation) {

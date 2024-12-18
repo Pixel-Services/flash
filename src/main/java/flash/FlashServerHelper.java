@@ -18,6 +18,7 @@ package flash;
 
 import flash.route.RouteController;
 import flash.routematch.RouteMatch;
+import flash.swagger.FlashSwaggerConfiguration;
 import flash.swagger.FlashSwaggerGenerator;
 
 import java.util.List;
@@ -75,8 +76,8 @@ public class FlashServerHelper {
         return getInstance().route(base);
     }
 
-    public static FlashSwaggerGenerator swagger(String title, String version, String description) {
-        return getInstance().swagger(title, version, description);
+    public static FlashSwaggerGenerator swagger(String endpoint, FlashSwaggerConfiguration configuration) {
+        return getInstance().swagger(endpoint, configuration);
     }
 
     /**
