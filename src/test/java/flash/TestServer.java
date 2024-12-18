@@ -1,10 +1,6 @@
 package flash;
 
-import flash.config.FlashConfiguration;
 import flash.handlers.TestHandler;
-import flash.route.RouteController;
-
-import static flash.FlashServerHelper.*;
 
 public class TestServer {
     public static void main(String[] args) {

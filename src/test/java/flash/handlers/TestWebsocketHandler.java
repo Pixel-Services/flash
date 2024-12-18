@@ -1,4 +1,4 @@
-package flash;
+package flash.handlers;
 
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
