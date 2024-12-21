@@ -20,4 +20,5 @@ jobs:
                   javadoc-branch: javadoc
                   java-version: 21
                   target-folder: javadoc
+                  javadoc-source-folder: target/site/apidocs
                   project: maven
