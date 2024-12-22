@@ -170,8 +170,8 @@ public class MyProject {
 }</code></pre>
 
       <pre><code class="language-java">//MyHandler.java
-@RouteInfo(endpoint = "/test", method = HttpMethod.GET)
-public class TestHandler extends RequestHandler {
+@RouteInfo(endpoint = "/hello", method = HttpMethod.GET)
+public class MyHandler extends RequestHandler {
     private final ExpectedRequestParameter p1;
 
     public TestHandler(Request req, Response res) {
@@ -189,7 +189,7 @@ public class TestHandler extends RequestHandler {
 
     <div class="terminal">
       <code>
-        <span class="curl">$ curl </span><span class="url">"http://localhost:8080/myendpoint/test?p1=Flash"</span><br>
+        <span class="curl">$ curl </span><span class="url">"http://localhost:8080/myendpoint/hello?p1=Flash"</span><br>
         <span class="result">➡️ "Hello World! p1 is: Flash"</span>
       </code>
     </div>
