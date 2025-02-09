@@ -1,4 +1,4 @@
-package com.pixelservices.components.staticfileserver;
+package com.pixelservices.flash.components.staticfileserver;
 
 public enum SourceType {
     FILESYSTEM,

@@ -1,6 +1,6 @@
-package com.pixelservices.lifecycle;
+package com.pixelservices.flash.lifecycle;
 
-import com.pixelservices.models.HttpMethod;
+import com.pixelservices.flash.models.HttpMethod;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;

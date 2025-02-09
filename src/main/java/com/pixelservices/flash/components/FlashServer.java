@@ -1,20 +1,20 @@
-package com.pixelservices.components;
+package com.pixelservices.flash.components;
 
-import com.pixelservices.components.staticfileserver.StaticFileServer;
-import com.pixelservices.components.staticfileserver.StaticFileServerConfiguration;
-import com.pixelservices.exceptions.RequestExceptionHandler;
-import com.pixelservices.exceptions.UnmatchedHandlerException;
-import com.pixelservices.lifecycle.Request;
-import com.pixelservices.lifecycle.Response;
-import com.pixelservices.models.HandlerSpecification;
-import com.pixelservices.models.HandlerType;
-import com.pixelservices.models.HttpMethod;
-import com.pixelservices.models.SimpleHandler;
-import com.pixelservices.swagger.OpenAPIConfiguration;
-import com.pixelservices.swagger.OpenAPISchemaGenerator;
-import com.pixelservices.swagger.OpenAPIUITemplate;
-import com.pixelservices.utils.PrettyLogger;
-import com.pixelservices.utils.RouteParameterParser;
+import com.pixelservices.flash.components.staticfileserver.StaticFileServer;
+import com.pixelservices.flash.components.staticfileserver.StaticFileServerConfiguration;
+import com.pixelservices.flash.exceptions.RequestExceptionHandler;
+import com.pixelservices.flash.exceptions.UnmatchedHandlerException;
+import com.pixelservices.flash.lifecycle.Request;
+import com.pixelservices.flash.lifecycle.Response;
+import com.pixelservices.flash.models.HandlerSpecification;
+import com.pixelservices.flash.models.HandlerType;
+import com.pixelservices.flash.models.HttpMethod;
+import com.pixelservices.flash.models.SimpleHandler;
+import com.pixelservices.flash.swagger.OpenAPIConfiguration;
+import com.pixelservices.flash.swagger.OpenAPISchemaGenerator;
+import com.pixelservices.flash.swagger.OpenAPIUITemplate;
+import com.pixelservices.flash.utils.PrettyLogger;
+import com.pixelservices.flash.utils.RouteParameterParser;
 import org.json.JSONObject;
 
 import java.io.IOException;

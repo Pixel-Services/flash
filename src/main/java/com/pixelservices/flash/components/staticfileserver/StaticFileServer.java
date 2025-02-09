@@ -1,9 +1,9 @@
-package com.pixelservices.components.staticfileserver;
+package com.pixelservices.flash.components.staticfileserver;
 
-import com.pixelservices.components.FlashServer;
-import com.pixelservices.models.HandlerType;
-import com.pixelservices.models.HttpMethod;
-import com.pixelservices.utils.PrettyLogger;
+import com.pixelservices.flash.components.FlashServer;
+import com.pixelservices.flash.models.HandlerType;
+import com.pixelservices.flash.models.HttpMethod;
+import com.pixelservices.flash.utils.PrettyLogger;
 
 import java.io.IOException;
 import java.net.URISyntaxException;

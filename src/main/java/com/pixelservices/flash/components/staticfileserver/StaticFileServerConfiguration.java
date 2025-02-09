@@ -1,4 +1,4 @@
-package com.pixelservices.components.staticfileserver;
+package com.pixelservices.flash.components.staticfileserver;
 
 import java.nio.file.Path;
 

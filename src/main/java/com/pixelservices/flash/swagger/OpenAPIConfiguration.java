@@ -1,4 +1,4 @@
-package com.pixelservices.swagger;
+package com.pixelservices.flash.swagger;
 
 import java.util.List;
 

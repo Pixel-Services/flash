@@ -1,7 +1,7 @@
-package com.pixelservices.exceptions;
+package com.pixelservices.flash.exceptions;
 
-import com.pixelservices.lifecycle.Response;
-import com.pixelservices.utils.PrettyLogger;
+import com.pixelservices.flash.lifecycle.Response;
+import com.pixelservices.flash.utils.PrettyLogger;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

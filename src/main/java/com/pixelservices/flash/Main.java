@@ -1,10 +1,10 @@
-package com.pixelservices;
+package com.pixelservices.flash;
 
-import com.pixelservices.components.FlashConfiguration;
-import com.pixelservices.components.FlashServer;
-import com.pixelservices.models.HandlerType;
-import com.pixelservices.swagger.OpenAPIConfiguration;
-import com.pixelservices.swagger.OpenAPIUITemplate;
+import com.pixelservices.flash.components.FlashConfiguration;
+import com.pixelservices.flash.components.FlashServer;
+import com.pixelservices.flash.models.HandlerType;
+import com.pixelservices.flash.swagger.OpenAPIConfiguration;
+import com.pixelservices.flash.swagger.OpenAPIUITemplate;
 
 import java.net.InetSocketAddress;
 import java.util.List;

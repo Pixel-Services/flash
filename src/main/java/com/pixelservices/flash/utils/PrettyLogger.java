@@ -1,9 +1,9 @@
-package com.pixelservices.utils;
+package com.pixelservices.flash.utils;
 
-import com.pixelservices.logger.Logger;
-import com.pixelservices.logger.LoggerFactory;
-import com.pixelservices.logger.events.LogEvent;
-import com.pixelservices.logger.formatter.LogFormatter;
+import com.pixelservices.flash.logger.Logger;
+import com.pixelservices.flash.logger.LoggerFactory;
+import com.pixelservices.flash.logger.events.LogEvent;
+import com.pixelservices.flash.logger.formatter.LogFormatter;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

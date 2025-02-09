@@ -116,7 +116,7 @@
                 <configuration>
                     <archive>
                         <manifestEntries>
-                            <Main-Class>com.pixelservices.Main</Main-Class>
+                            <Main-Class>com.pixelservices.flash.Main</Main-Class>
                         </manifestEntries>
                     </archive>
                 </configuration>
@@ -137,7 +137,7 @@
                             <relocations>
                                 <relocation>
                                     <pattern>org.json</pattern>
-                                    <shadedPattern>com.pixelservices.shaded.org.json</shadedPattern>
+                                    <shadedPattern>com.pixelservices.flash.shaded.org.json</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>

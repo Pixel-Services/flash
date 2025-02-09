@@ -1,4 +1,4 @@
-package com.pixelservices.swagger;
+package com.pixelservices.flash.swagger;
 
 public enum OpenAPIUITemplate {
     SWAGGER_UI("""

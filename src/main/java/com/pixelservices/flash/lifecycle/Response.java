@@ -1,4 +1,4 @@
-package com.pixelservices.lifecycle;
+package com.pixelservices.flash.lifecycle;
 
 import org.json.JSONObject;
 import java.nio.ByteBuffer;

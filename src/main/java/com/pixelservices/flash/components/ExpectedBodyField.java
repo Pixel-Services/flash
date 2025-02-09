@@ -1,6 +1,6 @@
-package com.pixelservices.components;
+package com.pixelservices.flash.components;
 
-import com.pixelservices.utils.Parser;
+import com.pixelservices.flash.utils.Parser;
 import org.json.JSONObject;
 
 /**

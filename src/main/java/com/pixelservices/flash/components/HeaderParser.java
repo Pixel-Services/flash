@@ -1,4 +1,4 @@
-package com.pixelservices.components;
+package com.pixelservices.flash.components;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

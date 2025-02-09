@@ -1,4 +1,4 @@
-package com.pixelservices.components;
+package com.pixelservices.flash.components;
 
 import org.json.JSONObject;
 

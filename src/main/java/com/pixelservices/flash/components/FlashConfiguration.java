@@ -1,6 +1,6 @@
-package com.pixelservices.components;
+package com.pixelservices.flash.components;
 
-import com.pixelservices.models.HandlerType;
+import com.pixelservices.flash.models.HandlerType;
 
 import java.util.EnumMap;
 import java.util.Map;

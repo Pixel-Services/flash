@@ -1,4 +1,4 @@
-package com.pixelservices.exceptions;
+package com.pixelservices.flash.exceptions;
 
 public class UnmatchedMethodException extends RuntimeException {
     public UnmatchedMethodException(String message) {

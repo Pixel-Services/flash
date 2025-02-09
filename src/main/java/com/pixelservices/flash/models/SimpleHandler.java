@@ -1,7 +1,7 @@
-package com.pixelservices.models;
+package com.pixelservices.flash.models;
 
-import com.pixelservices.lifecycle.Request;
-import com.pixelservices.lifecycle.Response;
+import com.pixelservices.flash.lifecycle.Request;
+import com.pixelservices.flash.lifecycle.Response;
 
 import java.io.IOException;
 
