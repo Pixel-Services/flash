@@ -14,7 +14,6 @@ import com.pixelservices.flash.swagger.OpenAPIConfiguration;
 import com.pixelservices.flash.swagger.OpenAPISchemaGenerator;
 import com.pixelservices.flash.swagger.OpenAPIUITemplate;
 import com.pixelservices.flash.utils.PrettyLogger;
-import com.pixelservices.flash.utils.RouteParameterParser;
 import org.json.JSONObject;
 
 import java.io.IOException;
@@ -23,10 +22,12 @@ import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
-import java.util.HashMap;
-import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 import java.util.concurrent.*;
-import java.util.function.BiConsumer;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * FlashServer is a lightweight and asynchronous HTTP server designed for handling requests
@@ -35,8 +36,10 @@ import java.util.function.BiConsumer;
 public class FlashServer {
     private final ConcurrentMap<String, RequestHandler> routeHandlers;
     private final ConcurrentMap<String, HandlerType> handlerTypes;
-    private final Map<String, BiConsumer<Request, Response>> routes = new HashMap<>();
-    private final Map<String, RouteParameterParser> routeParsers = new HashMap<>();
+
+    private final Map<String, RouteEntry> literalRoutes = new ConcurrentHashMap<>();
+    private final List<RouteEntry> parameterizedRoutes = new CopyOnWriteArrayList<>();
+
     private final int port;
     private AsynchronousServerSocketChannel serverSocketChannel;
     private final FlashConfiguration config;
@@ -132,18 +135,20 @@ public class FlashServer {
      * @throws IllegalStateException if a route with the same method and path is already registered
      */
     private void registerRoute(HttpMethod method, String fullPath, RequestHandler handler, HandlerType handlerType) {
-        String routeKey = createRouteKey(method, fullPath);
-        if (routeHandlers.putIfAbsent(routeKey, handler) != null) {
-            throw new IllegalStateException("Duplicate route registered: " + routeKey);
+        RouteEntry entry = new RouteEntry(method, fullPath, handler);
+        if (entry.isParameterized()) {
+            parameterizedRoutes.add(entry);
+        } else {
+            literalRoutes.put(entry.getLiteralKey(), entry);
         }
 
-        handlerTypes.put(routeKey, handlerType);
+        String routingType = entry.isParameterized() ? "Parameterized" : "Literal";
+
+        handlerTypes.put(method.name() + ":" + fullPath, handlerType);
         handler.setHandlerType(handlerType);
-
         if (config.shouldLog(handlerType)) {
-            PrettyLogger.logWithEmoji(handlerType.name() + " Route registered: [" + method + "] " + fullPath, handlerType.getEmoji());
+            PrettyLogger.logWithEmoji(handlerType.name() + " " + routingType + " Route registered: [" + method + "] " + fullPath, handlerType.getEmoji());
         }
-
         handler.setSpecification(new HandlerSpecification(handler, fullPath, method, handler.isEnforcedNonNullBody()));
     }
 
@@ -251,13 +256,47 @@ public class FlashServer {
             @Override
             public void completed(Integer bytesRead, ByteBuffer buf) {
                 try {
-                    Request request = new Request(buf, (InetSocketAddress) clientChannel.getRemoteAddress());
-                    Response response = new Response();
-                    String routeKey = createRouteKey(request.method(), request.path());
-                    RequestHandler handler = routeHandlers.get(routeKey.split("\\?")[0]);
-                    if (handler == null) {
-                        throw new UnmatchedHandlerException("No handler found for " + request.method() + " " + request.path());
+                    String rawRequest = decodeBuffer(buf);
+
+                    String[] requestLines = rawRequest.split("\r\n");
+                    if (requestLines.length == 0 || requestLines[0].isEmpty()) {
+                        throw new IllegalArgumentException("Empty request");
                     }
+                    String[] parts = requestLines[0].split(" ");
+                    HttpMethod method = HttpMethod.valueOf(parts[0]);
+
+                    // Use regex to remove query parameters (fast and efficient)
+                    Matcher matcher = Pattern.compile("^[^?]+").matcher(parts[1]);
+                    String path = matcher.find() ? matcher.group() : parts[1];
+
+                    String literalKey = method.name() + ":" + path;
+
+                    RouteEntry matchedEntry = literalRoutes.get(literalKey);
+                    AtomicReference<Map<String, String>> extractedParams = new AtomicReference<>(Collections.emptyMap());
+
+                    if (matchedEntry == null) {
+                        Optional<RouteEntry> optEntry = parameterizedRoutes.parallelStream()
+                                .filter(entry -> entry.getMethod() == method)
+                                .filter(entry -> {
+                                    Map<String, String> params = entry.match(path);
+                                    if (params != null) {
+                                        extractedParams.set(params);
+                                        return true;
+                                    }
+                                    return false;
+                                }).findFirst();
+                        if (optEntry.isPresent()) {
+                            matchedEntry = optEntry.get();
+                        }
+                    }
+
+                    if (matchedEntry == null) {
+                        throw new UnmatchedHandlerException("No handler found for " + method + " " + path);
+                    }
+
+                    Request request = new Request(rawRequest, (InetSocketAddress) clientChannel.getRemoteAddress(), extractedParams.get());
+                    Response response = new Response();
+                    RequestHandler handler = matchedEntry.getHandler();
                     handler.setRequestResponse(request, response);
                     validateHandlerResources(handler);
                     Object responseBody = handler.handle();
@@ -276,9 +315,7 @@ public class FlashServer {
                 closeSocket(clientChannel);
             }
         });
-
     }
-
 
     /**
      * Sends a response to the client.
@@ -307,7 +344,6 @@ public class FlashServer {
             });
         }
     }
-
 
     /**
      * Sends an error response to the client.
@@ -507,6 +543,21 @@ public class FlashServer {
      */
     public void afterAfter(String endpoint, SimpleHandler handler) {
         registerRoute(HttpMethod.AFTERAFTER, endpoint, handler);
+    }
+
+
+    // ----------------- UTILITY METHODS ----------------- //
+
+
+    /**
+     * Decodes a ByteBuffer into a UTF-8 encoded string.
+     *
+     * @param buffer the ByteBuffer to decode
+     * @return the decoded string
+     */
+    private String decodeBuffer(ByteBuffer buffer) {
+        buffer.flip();
+        return StandardCharsets.UTF_8.decode(buffer).toString();
     }
 }
 

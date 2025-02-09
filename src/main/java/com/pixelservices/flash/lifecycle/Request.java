@@ -1,15 +1,12 @@
 package com.pixelservices.flash.lifecycle;
 
+import com.pixelservices.flash.components.RoutePattern;
 import com.pixelservices.flash.models.HttpMethod;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Represents an HTTP request, parsed from a raw buffer.
@@ -19,26 +16,17 @@ public class Request {
     private String path;
     private final Map<String, String> headers;
     private final Map<String, List<String>> queryParams;
-    private final Map<String, String> routeParams = new HashMap<>();
+    private final Map<String, String> routeParams;
     private String body;
     private final InetSocketAddress clientAddress;
 
-    /**
-     * Constructs a Request object from a raw HTTP request buffer and client address.
-     *
-     * @param rawRequestBuffer the raw ByteBuffer containing the HTTP request
-     * @param clientAddress    the client's remote address
-     * @throws IllegalArgumentException if the request format is invalid
-     */
-    public Request(ByteBuffer rawRequestBuffer, InetSocketAddress clientAddress) {
+    public Request(String rawRequest, InetSocketAddress clientAddress, Map<String, String> routeParams) {
         this.headers = new HashMap<>();
         this.queryParams = new HashMap<>();
-        this.body = "";
         this.clientAddress = clientAddress;
+        this.routeParams = Map.copyOf(routeParams);
 
-        String rawRequest = decodeBuffer(rawRequestBuffer);
         String[] requestLines = rawRequest.split("\r\n");
-
         if (requestLines.length == 0 || requestLines[0].isEmpty()) {
             throw new IllegalArgumentException("Invalid or empty request line");
         }
@@ -47,17 +35,6 @@ public class Request {
         parseHeaders(requestLines);
         parseQueryParams();
         parseBody(requestLines);
-    }
-
-    /**
-     * Decodes a ByteBuffer into a UTF-8 encoded string.
-     *
-     * @param buffer the ByteBuffer to decode
-     * @return the decoded string
-     */
-    private String decodeBuffer(ByteBuffer buffer) {
-        buffer.flip();
-        return StandardCharsets.UTF_8.decode(buffer).toString();
     }
 
     /**
@@ -191,10 +168,6 @@ public class Request {
         return body;
     }
 
-    public void setRouteParams(Map<String, String> params) {
-        routeParams.putAll(params);
-    }
-
     public String getRouteParam(String name) {
         return routeParams.get(name);
     }
@@ -230,7 +203,9 @@ public class Request {
                 ", path='" + path + '\'' +
                 ", headers=" + headers +
                 ", queryParams=" + queryParams +
+                ", routeParams=" + routeParams +
                 ", body='" + body + '\'' +
+                ", clientAddress=" + clientAddress +
                 '}';
     }
 }
