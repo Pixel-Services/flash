@@ -3,6 +3,7 @@ package com.pixelservices.flash.components;
 import com.pixelservices.flash.components.staticfileserver.StaticFileServer;
 import com.pixelservices.flash.components.staticfileserver.StaticFileServerConfiguration;
 import com.pixelservices.flash.exceptions.RequestExceptionHandler;
+import com.pixelservices.flash.exceptions.ServerStartupException;
 import com.pixelservices.flash.exceptions.UnmatchedHandlerException;
 import com.pixelservices.flash.lifecycle.Request;
 import com.pixelservices.flash.lifecycle.Response;
@@ -103,6 +104,8 @@ public class FlashServer {
             Thread.sleep(Long.MAX_VALUE);
         } catch (IOException | InterruptedException e) {
             PrettyLogger.logWithEmoji("Error starting server: " + e.getMessage(), "❌");
+
+            throw new ServerStartupException("Error starting server", e);
         }
     }
 
