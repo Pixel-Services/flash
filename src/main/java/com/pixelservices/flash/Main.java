@@ -3,6 +3,7 @@ package com.pixelservices.flash;
 import com.pixelservices.flash.components.FlashConfiguration;
 import com.pixelservices.flash.components.FlashServer;
 import com.pixelservices.flash.models.HandlerType;
+import com.pixelservices.flash.models.HttpMethod;
 import com.pixelservices.flash.swagger.OpenAPIConfiguration;
 import com.pixelservices.flash.swagger.OpenAPIUITemplate;
 

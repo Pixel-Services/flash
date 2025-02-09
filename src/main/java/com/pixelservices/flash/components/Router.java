@@ -4,6 +4,7 @@ import com.pixelservices.flash.lifecycle.Request;
 import com.pixelservices.flash.lifecycle.Response;
 import com.pixelservices.flash.models.HttpMethod;
 import com.pixelservices.flash.models.RouteInfo;
+import com.pixelservices.flash.models.SimpleHandler;
 
 import java.lang.reflect.Constructor;
 
@@ -39,6 +40,12 @@ public class Router {
 
         RequestHandler handlerInstance = createHandlerInstance(handlerClass);
         server.registerRoute(method, fullPath, handlerInstance); // Register in FlashServer
+        return this;
+    }
+
+    public Router register(String endpoint, SimpleHandler handler, HttpMethod method) {
+        String fullPath = basePath + endpoint;
+        server.registerRoute(method, fullPath, handler);
         return this;
     }
 

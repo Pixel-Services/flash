@@ -35,8 +35,6 @@ import java.util.function.BiConsumer;
 public class FlashServer {
     private final ConcurrentMap<String, RequestHandler> routeHandlers;
     private final ConcurrentMap<String, HandlerType> handlerTypes;
-    private final Map<String, BiConsumer<Request, Response>> routes = new HashMap<>();
-    private final Map<String, RouteParameterParser> routeParsers = new HashMap<>();
     private final int port;
     private AsynchronousServerSocketChannel serverSocketChannel;
     private final FlashConfiguration config;
