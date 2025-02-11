@@ -10,7 +10,8 @@ public enum HandlerType {
     WEBSOCKET("purple", "🔗"),
     SERVER_SENT_EVENTS("pink", "📡"),
     REDIRECT("orange", "➡️"),
-    INTERNAL("red", "🔒");
+    INTERNAL("red", "🔒"),
+    DYNAMIC("yellow", "🔍");
 
     private final String textColor;
     private final String emoji;
