@@ -17,6 +17,7 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
+import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
 
@@ -92,6 +93,7 @@ public class TestServer {
     @Test
     public void testReqBodyTestHandler(){
         String response = RequestPerformer.performPostRequestBodyField("http://localhost:8080/test/reqbody", "testParam", "John");
+        logger.info(response);
         assertEquals("Test body: John", response);
     }
 

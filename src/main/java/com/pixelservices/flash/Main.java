@@ -5,6 +5,8 @@ import com.pixelservices.flash.components.FlashServer;
 import com.pixelservices.flash.models.HandlerType;
 import com.pixelservices.flash.swagger.OpenAPIConfiguration;
 import com.pixelservices.flash.swagger.OpenAPIUITemplate;
+import com.pixelservices.flash.test.HelloWorld;
+import com.pixelservices.flash.test.TestHandler;
 
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -23,11 +25,13 @@ public class Main {
             return "Hello, " + req.getRouteParam("myParam") + " from " + addr.getHostName() + ":" + addr.getPort();
         });
 
-        /*
+        server.get("/dynamic/*", (req, res) -> {
+            return req.path();
+        });
+
         server.route("/test")
               .register(TestHandler.class)
               .register(HelloWorld.class);
-         */
 
         server.openapi("/docs", new OpenAPIConfiguration(
             "Flash Server",
