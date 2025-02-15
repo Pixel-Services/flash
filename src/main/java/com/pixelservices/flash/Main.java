@@ -5,6 +5,7 @@ import com.pixelservices.flash.components.FlashServer;
 import com.pixelservices.flash.models.HandlerType;
 import com.pixelservices.flash.swagger.OpenAPIConfiguration;
 import com.pixelservices.flash.swagger.OpenAPIUITemplate;
+import com.pixelservices.flash.test.FileUploadHandler;
 import com.pixelservices.flash.test.HelloWorld;
 import com.pixelservices.flash.test.TestHandler;
 
@@ -25,12 +26,24 @@ public class Main {
             return "Hello, " + req.getRouteParam("myParam") + " from " + addr.getHostName() + ":" + addr.getPort();
         });
 
-        server.get("/dynamic/*", (req, res) -> {
-            return req.path();
-        });
+        /*
+        server.serveDynamic("/react", new DynamicFileServerConfiguration(
+            true,
+            Path.of("C:\\Users\\elorc\\Documents\\Coding\\Java\\headless\\Flash\\react-app\\build"),
+            "index.html"
+        ));
+
+        server.serveStatic("/static", new StaticFileServerConfiguration(
+            true,
+            true,
+            Path.of("C:\\Users\\elorc\\Documents\\Coding\\Java\\headless\\Flash\\react-app\\build"),
+            SourceType.FILESYSTEM
+        ));
+         */
 
         server.route("/test")
               .register(TestHandler.class)
+              .register(FileUploadHandler.class)
               .register(HelloWorld.class);
 
         server.openapi("/docs", new OpenAPIConfiguration(

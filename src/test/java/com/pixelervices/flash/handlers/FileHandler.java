@@ -26,11 +26,10 @@ public class FileHandler extends RequestHandler {
             InputStream inputStream = expectedBodyFile.getInputStream();
             Scanner scanner = new Scanner(inputStream, StandardCharsets.UTF_8);
             res.status(200);
-            String response = scanner.useDelimiter("\\A").next();
-            return response;
+            return scanner.useDelimiter("\\A").next();
         } catch (Exception e) {
             res.status(401);
-            return "Error nigger";
+            return "Error";
         }
     }
 }

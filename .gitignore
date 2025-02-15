@@ -2,7 +2,9 @@ target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-/src/main/java/com/pixelservices/test/
+/src/main/java/com/pixelservices/flash/test/
+/src/main/java/com/pixelservices/flash/Main.java
+
 
 ### IntelliJ IDEA ###
 .idea/modules.xml

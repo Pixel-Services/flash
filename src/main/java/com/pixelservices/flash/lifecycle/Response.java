@@ -1,6 +1,7 @@
 package com.pixelservices.flash.lifecycle;
 
 import org.json.JSONObject;
+
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -69,6 +70,7 @@ public class Response {
 
     /**
      * Sets the body of the response.
+     * Warning: Overrides existing body content.
      *
      * @param body the body content
      * @return the updated Response object
@@ -78,6 +80,15 @@ public class Response {
         ensureNotFinalized();
         this.body = body;
         return this;
+    }
+
+    /**
+     * Retrieves the body of the response.
+     *
+     * @return the body content
+     */
+    public Object getBody() {
+        return body;
     }
 
     /**
@@ -128,100 +139,58 @@ public class Response {
         }
 
         try {
-            return switch (contentType.toLowerCase()) {
-                case "application/json" -> serializeJsonBody(body);
-                case "text/plain", "text/html", "text/css", "text/javascript", "application/javascript" -> serializeStringBody(body);
-                case "application/xml" -> serializeXmlBody(body);
-                case "application/x-www-form-urlencoded" -> serializeFormUrlEncodedBody(body);
-                case "multipart/form-data" -> serializeMultipartFormBody(body);
-                // Expanded binary content types: images, video, audio, etc.
-                case "application/octet-stream",
-                     "application/pdf",
-                     "image/png",
-                     "image/jpeg",
-                     "image/gif",
-                     "image/svg+xml",
-                     "image/x-icon",
-                     "image/vnd.microsoft.icon",
-                     "video/mp4",
-                     "video/ogg",
-                     "audio/mpeg",
-                     "audio/ogg" -> serializeStringBody(body);
-                default -> throw new UnsupportedOperationException("Unsupported content type: " + contentType);
-            };
+            return serializeBody(body, contentType);
         } catch (ClassCastException e) {
             throw new UnsupportedOperationException("Invalid body type for content type: " + contentType, e);
         }
     }
 
-    // Utility Methods
-    private byte[] serializeJsonBody(Object body) {
-        if (body instanceof String) {
-            return ((String) body).getBytes(StandardCharsets.UTF_8);
-        } else if (body instanceof JSONObject) {
-            return body.toString().getBytes(StandardCharsets.UTF_8);
-        } else {
-            throw new UnsupportedOperationException("Body must be a String or JSONObject for application/json");
-        }
-    }
-
-    private byte[] serializeStringBody(Object body) {
-        if (body instanceof String) {
-            return ((String) body).getBytes(StandardCharsets.UTF_8);
-        } else {
-            throw new UnsupportedOperationException("Body must be a String for text content types");
-        }
-    }
-
-    private byte[] serializeXmlBody(Object body) {
-        if (body instanceof String) {
-            return ((String) body).getBytes(StandardCharsets.UTF_8);
-        } else {
-            throw new UnsupportedOperationException("Body must be a String for application/xml");
-        }
-    }
-
-    private byte[] serializeFormUrlEncodedBody(Object body) {
-        if (body instanceof String) {
-            return ((String) body).getBytes(StandardCharsets.UTF_8);
-        } else {
-            throw new UnsupportedOperationException("Body must be a String for application/x-www-form-urlencoded");
-        }
-    }
-
-    private byte[] serializeMultipartFormBody(Object body) {
-        if (body instanceof String) {
-            return ((String) body).getBytes(StandardCharsets.UTF_8);
-        } else {
-            throw new UnsupportedOperationException("Body must be a String for multipart/form-data");
-        }
-    }
-
-    private byte[] serializeBinaryBody(Object body) {
-        if (body instanceof byte[]) {
-            return (byte[]) body;
-        } else {
-            throw new UnsupportedOperationException("Body must be a byte[] for binary content types");
-        }
+    /**
+     * Serializes the body based on its type and content type.
+     *
+     * @param body the body content
+     * @param contentType the content type
+     * @return the serialized body as a byte array
+     * @throws UnsupportedOperationException if the body type is invalid for the content type
+     */
+    private byte[] serializeBody(Object body, String contentType) {
+        return switch (body) {
+            case String s -> s.getBytes(StandardCharsets.UTF_8);
+            case JSONObject jsonObject -> body.toString().getBytes(StandardCharsets.UTF_8);
+            case byte[] bytes -> bytes;
+            case null, default ->
+                    throw new UnsupportedOperationException("Unsupported body type for content type: " + contentType + ", received " + body.getClass().getSimpleName() + " instead");
+        };
     }
 
     private String getStatusMessage(int statusCode) {
         return switch (statusCode) {
             case 200 -> "OK";
+            case 201 -> "Created";
+            case 204 -> "No Content";
             case 400 -> "Bad Request";
+            case 401 -> "Unauthorized";
+            case 403 -> "Forbidden";
             case 404 -> "Not Found";
             case 500 -> "Internal Server Error";
             default -> "Unknown Status";
         };
     }
 
-    public Object getBody() {
-        return body;
-    }
-
     private void ensureNotFinalized() {
         if (finalized) {
             throw new IllegalStateException("Response is already finalized");
         }
+    }
+
+    @Override
+    public String toString() {
+        return "Response{" +
+                "headers=" + headers +
+                ", statusCode=" + statusCode +
+                ", contentType='" + contentType + '\'' +
+                ", body=" + body +
+                ", finalized=" + finalized +
+                '}';
     }
 }

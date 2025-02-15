@@ -1,7 +1,9 @@
 package com.pixelservices.flash.components;
 
-import com.pixelservices.flash.components.staticfileserver.StaticFileServer;
-import com.pixelservices.flash.components.staticfileserver.StaticFileServerConfiguration;
+import com.pixelservices.flash.components.fileserver.DynamicFileServer;
+import com.pixelservices.flash.components.fileserver.DynamicFileServerConfiguration;
+import com.pixelservices.flash.components.fileserver.StaticFileServer;
+import com.pixelservices.flash.components.fileserver.StaticFileServerConfiguration;
 import com.pixelservices.flash.exceptions.RequestExceptionHandler;
 import com.pixelservices.flash.exceptions.ServerStartupException;
 import com.pixelservices.flash.exceptions.UnmatchedHandlerException;
@@ -47,6 +49,7 @@ public class FlashServer {
     private AsynchronousServerSocketChannel serverSocketChannel;
     private final FlashConfiguration config;
     private final StaticFileServer staticFileServer;
+    private final DynamicFileServer dynamicFileServer;
 
     private static final Pattern PATH_ONLY_PATTERN = Pattern.compile("^[^?]+");
 
@@ -55,6 +58,7 @@ public class FlashServer {
         this.handlerTypes = new ConcurrentHashMap<>();
         this.port = port;
         this.staticFileServer = new StaticFileServer(this);
+        this.dynamicFileServer = new DynamicFileServer(this);
         this.config = config;
     }
 
@@ -90,7 +94,7 @@ public class FlashServer {
             // Keep the server alive indefinitely.
             Thread.sleep(Long.MAX_VALUE);
         } catch (IOException | InterruptedException e) {
-            PrettyLogger.logWithEmoji("Error starting server: " + e.getMessage(), "❌");
+            PrettyLogger.withEmoji("Error starting server: " + e.getMessage(), "❌");
             throw new ServerStartupException("Error starting server", e);
         }
     }
@@ -109,7 +113,7 @@ public class FlashServer {
             }
             @Override
             public void failed(Throwable exc, Object attachment) {
-                PrettyLogger.logWithEmoji("Failed to accept connection: " + exc.getMessage(), "⚠️");
+                PrettyLogger.withEmoji("Failed to accept connection: " + exc.getMessage(), "⚠️");
                 acceptNextConnection();
             }
         });
@@ -138,7 +142,7 @@ public class FlashServer {
         String routingType = fullPath.endsWith("/*") ? "Dynamic"
                 : (entry.isParameterized() ? "Parameterized" : "Literal");
         if (config.shouldLog(handlerType)) {
-            PrettyLogger.logWithEmoji(handlerType.name() + " " + routingType + " Route registered: [" + method + "] " + fullPath, handlerType.getEmoji());
+            PrettyLogger.withEmoji(handlerType.name() + " " + routingType + " Route registered: [" + method + "] " + fullPath, handlerType.getEmoji());
         }
         handler.setSpecification(new HandlerSpecification(handler, fullPath, method, handler.isEnforcedNonNullBody()));
     }
@@ -159,9 +163,9 @@ public class FlashServer {
         String routeKey = createRouteKey(method, fullPath);
         if (routeHandlers.remove(routeKey) != null) {
             handlerTypes.remove(routeKey);
-            PrettyLogger.logWithEmoji("Route unregistered: [" + method + "] " + fullPath, "❌");
+            PrettyLogger.withEmoji("Route unregistered: [" + method + "] " + fullPath, "❌");
         } else {
-            PrettyLogger.logWithEmoji("Route not found: [" + method + "] " + fullPath, "⚠️");
+            PrettyLogger.withEmoji("Route not found: [" + method + "] " + fullPath, "⚠️");
         }
     }
 
@@ -302,7 +306,7 @@ public class FlashServer {
             }
             @Override
             public void failed(Throwable exc, ByteBuffer buf) {
-                PrettyLogger.logWithEmoji("Error sending response: " + exc.getMessage(), "⚠️");
+                PrettyLogger.withEmoji("Error sending response: " + exc.getMessage(), "⚠️");
                 closeSocket(clientChannel);
             }
         });
@@ -312,7 +316,7 @@ public class FlashServer {
         try {
             clientChannel.close();
         } catch (IOException e) {
-            PrettyLogger.logWithEmoji("Error closing socket: " + e.getMessage(), "❌");
+            PrettyLogger.withEmoji("Error closing socket: " + e.getMessage(), "❌");
         }
     }
 
@@ -355,8 +359,12 @@ public class FlashServer {
         return config;
     }
 
-    public void serveStaticFiles(String endpoint, StaticFileServerConfiguration config) {
-        staticFileServer.serveStaticFiles(endpoint, config);
+    public void serveStatic(String endpoint, StaticFileServerConfiguration config) {
+        staticFileServer.serve(endpoint, config);
+    }
+
+    public void serveDynamic(String endpoint, DynamicFileServerConfiguration config) {
+        dynamicFileServer.serve(endpoint, config);
     }
 
     public Map<String, RequestHandler> getRouteHandlers() {
@@ -426,5 +434,4 @@ public class FlashServer {
         public Map<String, String> getParams() { return params; }
     }
 }
-
 

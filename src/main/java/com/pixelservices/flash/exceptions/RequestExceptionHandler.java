@@ -23,6 +23,7 @@ public class RequestExceptionHandler {
      * Handles the exception by sending an appropriate error response to the client.
      */
     public void handle() {
+        exception.printStackTrace();
         switch (exception) {
             case IllegalArgumentException illegalArgumentException ->
                     sendErrorResponse(400, "Validation error: " + exception.getMessage());
@@ -41,13 +42,14 @@ public class RequestExceptionHandler {
      * @param message    the error message to include in the response
      */
     private void sendErrorResponse(int statusCode, String message) {
+        System.out.println("Sending error response: " + message);
         Response errorResponse = new Response();
         errorResponse.status(statusCode).body(message).type("text/plain");
         try {
             ByteBuffer responseBuffer = errorResponse.getSerialized();
             clientChannel.write(responseBuffer).get();
         } catch (Exception ex) {
-            PrettyLogger.logWithEmoji("Error sending error response: " + ex.getMessage(), "⚠️");
+            PrettyLogger.withEmoji("Error sending error response: " + ex.getMessage(), "⚠️");
         } finally {
             closeSocket();
         }
@@ -60,7 +62,7 @@ public class RequestExceptionHandler {
         try {
             clientChannel.close();
         } catch (IOException e) {
-            PrettyLogger.logWithEmoji("Error closing socket: " + e.getMessage(), "❌");
+            PrettyLogger.withEmoji("Error closing socket: " + e.getMessage(), "❌");
         }
     }
 }
