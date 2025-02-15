@@ -34,13 +34,50 @@ public class PrettyLogger {
     }
 
     /**
-     * Logs a message with an emoji prefix.
+     * Logs a message with optional hex color codes and emojis.
+     *
+     * @param message the message to log, with optional {@code "<#RRGGBB>"} for colors and emojis
+     */
+    public static void warn(String message) {
+        String coloredMessage = applyHexColors(message+"&#reset");
+        logger.warn(coloredMessage);
+    }
+
+    public static void error(String message) {
+        String coloredMessage = applyHexColors(message+"&#reset");
+        logger.error(coloredMessage);
+    }
+
+    /**
+     * Logs a message with an emoji and optional hex color codes.
      *
      * @param message the message to log
-     * @param emoji   the emoji to prepend
+     * @param emoji the emoji to prepend to the message
+     * @param logType the type of log
      */
-    public static void logWithEmoji(String message, String emoji) {
-        log(emoji + "  " + message);
+    public static void withEmoji(String message, String emoji, LogType logType) {
+        String coloredMessage = applyHexColors(message+"&#reset");
+        switch (logType) {
+            case INFO:
+                logger.info(emoji + " " + coloredMessage);
+                break;
+            case WARN:
+                logger.warn(emoji + " " + coloredMessage);
+                break;
+            case ERROR:
+                logger.error(emoji + " " + coloredMessage);
+                break;
+        }
+    }
+
+    /**
+     * Logs a message with an emoji and optional hex color codes.
+     *
+     * @param message the message to log
+     * @param emoji the emoji to prepend to the message
+     */
+    public static void withEmoji(String message, String emoji) {
+        withEmoji(message, emoji, LogType.INFO);
     }
 
     /**
@@ -49,7 +86,7 @@ public class PrettyLogger {
      * @param message the original message
      * @return the message with ANSI color codes applied
      */
-    private static String applyHexColors(String message) {
+    static String applyHexColors(String message) {
         Matcher matcher = HEX_COLOR_PATTERN.matcher(message);
         StringBuilder formattedMessage = new StringBuilder(RESET); // Always start with RESET
 
@@ -88,14 +125,26 @@ public class PrettyLogger {
 }
 
 class CustomLogFormatter implements LogFormatter {
+    private static final int LEVEL_WIDTH = 5;
+
     @Override
     public String format(LogEvent logEvent) {
-        long timestamp = logEvent.getTimestamp();
+        long timestampMillis = logEvent.getTimestamp();
+        long timestamp = timestampMillis / 1000; // Convert to seconds
+
         String level = logEvent.getLevel().name();
         String message = logEvent.getMessage();
-        String time = String.format("[%02d:%02d:%02d]", (timestamp / 3600) % 24, (timestamp / 60) % 60, timestamp % 60);
-        String loggerName = logEvent.getLoggerName();
-        return String.format("%s %s : %s", time, level, message);
+        String time = String.format("[%02d:%02d:%02d]",
+                (timestamp / 3600) % 24,
+                (timestamp / 60) % 60,
+                timestamp % 60
+        );
+
+        String paddedLevel = String.format("%-" + LEVEL_WIDTH + "s", level);
+
+        return PrettyLogger.applyHexColors(String.format("%s &#FFEE8CFlash &#reset%s : %s", time, paddedLevel, message));
     }
+
 }
+
 
