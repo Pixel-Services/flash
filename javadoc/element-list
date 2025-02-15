@@ -1,6 +1,5 @@
-com.pixelservices.flash
 com.pixelservices.flash.components
-com.pixelservices.flash.components.staticfileserver
+com.pixelservices.flash.components.fileserver
 com.pixelservices.flash.exceptions
 com.pixelservices.flash.lifecycle
 com.pixelservices.flash.models
