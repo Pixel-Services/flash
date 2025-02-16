@@ -74,7 +74,7 @@ public class DynamicFileServer {
         String fallbackRoute = endpoint.endsWith("/") ? endpoint + "*" : endpoint + "/*";
 
         if (!endpoint.endsWith("/*")) {
-            PrettyLogger.withEmoji("&#FF746CDynamicFileServer endpoint should end with '/*' to handle all routes. Enforcing it as it's required for the DynamicFileServer.", "‼️", LogType.ERROR);
+            PrettyLogger.withEmoji("&#FF746CDynamicFileServer endpoint should end with '/*' to handle all routes. Enforcing it as it's required for dynamic routing.", "‼️", LogType.ERROR);
         }
 
         server.registerRoute(HttpMethod.GET, fallbackRoute, (req, res) -> {

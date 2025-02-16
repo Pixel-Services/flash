@@ -326,14 +326,15 @@ public class FlashServer {
         handler.getExpectedBodyFiles().values().parallelStream().forEach(ExpectedBodyFile::getInputStream);
     }
 
-    private String convertToResponseBody(Object responseBody) {
+    private Object convertToResponseBody(Object responseBody) {
         return switch (responseBody) {
             case null -> "";
-            case byte[] bytes -> new String(bytes);
-            case String s -> s;
+            case byte[] ignored -> responseBody;
+            case String ignored -> responseBody;
             default -> responseBody.toString();
         };
     }
+
 
     /**
      * Creates a route key based on the HTTP method and path.

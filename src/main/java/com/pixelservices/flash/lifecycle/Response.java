@@ -19,7 +19,7 @@ public class Response {
     private boolean finalized;
 
     /**
-     * Constructs a new Response object with default status and content type.
+     * Constructs a new Response object with default status and a default content type of "text/plain".
      */
     public Response() {
         this.headers = Collections.synchronizedMap(new HashMap<>());
@@ -104,28 +104,31 @@ public class Response {
      * @return the serialized response as a ByteBuffer
      */
     public ByteBuffer getSerialized() {
-        StringBuilder responseBuilder = new StringBuilder();
-
-        // Append status line
-        responseBuilder.append("HTTP/1.1 ")
+        // Build headers
+        StringBuilder headerBuilder = new StringBuilder();
+        headerBuilder.append("HTTP/1.1 ")
                 .append(statusCode)
                 .append(" ")
                 .append(getStatusMessage(statusCode))
                 .append("\r\n");
 
-        // Ensure Content-Type header is set
         headers.putIfAbsent("Content-Type", contentType);
 
-        // Append headers
-        headers.forEach((key, value) -> responseBuilder.append(key).append(": ").append(value).append("\r\n"));
-        responseBuilder.append("\r\n"); // End of headers
+        headers.forEach((key, value) -> headerBuilder.append(key).append(": ").append(value).append("\r\n"));
+        headerBuilder.append("\r\n"); // End of headers
 
-        // Append body
+        byte[] headerBytes = headerBuilder.toString().getBytes(StandardCharsets.UTF_8);
         byte[] bodyBytes = getSerializedBody();
-        responseBuilder.append(new String(bodyBytes, StandardCharsets.UTF_8));
 
-        return ByteBuffer.wrap(responseBuilder.toString().getBytes(StandardCharsets.UTF_8));
+        // Combine headers and body without string conversion for body
+        ByteBuffer buffer = ByteBuffer.allocate(headerBytes.length + bodyBytes.length);
+        buffer.put(headerBytes);
+        buffer.put(bodyBytes);
+        buffer.flip(); // Prepare buffer for reading
+
+        return buffer;
     }
+
 
     /**
      * Serializes the response body based on its content type.
