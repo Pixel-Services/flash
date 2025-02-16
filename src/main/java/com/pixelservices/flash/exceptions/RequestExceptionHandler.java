@@ -23,7 +23,6 @@ public class RequestExceptionHandler {
      * Handles the exception by sending an appropriate error response to the client.
      */
     public void handle() {
-        exception.printStackTrace();
         switch (exception) {
             case IllegalArgumentException illegalArgumentException ->
                     sendErrorResponse(400, "Validation error: " + exception.getMessage());
@@ -42,7 +41,7 @@ public class RequestExceptionHandler {
      * @param message    the error message to include in the response
      */
     private void sendErrorResponse(int statusCode, String message) {
-        System.out.println("Sending error response: " + message);
+        PrettyLogger.warn("Sending error response (" + statusCode + ") &#FF746C'" + message + "'");
         Response errorResponse = new Response();
         errorResponse.status(statusCode).body(message).type("text/plain");
         try {
