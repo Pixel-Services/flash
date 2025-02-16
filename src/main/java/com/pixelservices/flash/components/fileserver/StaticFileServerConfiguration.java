@@ -1,14 +1,12 @@
 package com.pixelservices.flash.components.fileserver;
 
-import java.nio.file.Path;
-
 public class StaticFileServerConfiguration {
     private final boolean enableFileWatcher;
     private final boolean enableIndexRedirect;
-    private final Path destinationPath;
+    private final String destinationPath;
     private final SourceType sourceType;
 
-    public StaticFileServerConfiguration(boolean enableFileWatcher, boolean enableIndexRedirect, Path destinationPath, SourceType sourceType) {
+    public StaticFileServerConfiguration(boolean enableFileWatcher, boolean enableIndexRedirect, String destinationPath, SourceType sourceType) {
         this.enableFileWatcher = enableFileWatcher;
         this.enableIndexRedirect = enableIndexRedirect;
         this.destinationPath = destinationPath;
@@ -23,7 +21,7 @@ public class StaticFileServerConfiguration {
         return enableIndexRedirect;
     }
 
-    public Path getDestinationPath() {
+    public String getDestinationPath() {
         return destinationPath;
     }
 
