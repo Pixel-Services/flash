@@ -6,11 +6,13 @@ public class DynamicFileServerConfiguration {
     private final boolean enableFileWatcher;
     private final Path destinationPath;
     private final String dynamicEntrypoint;
+    private final SourceType sourceType;
 
-    public DynamicFileServerConfiguration(boolean enableFileWatcher, Path destinationPath, String dynamicEntrypoint) {
+    public DynamicFileServerConfiguration(boolean enableFileWatcher, Path destinationPath, String dynamicEntrypoint, SourceType sourceType) {
         this.enableFileWatcher = enableFileWatcher;
         this.destinationPath = destinationPath;
         this.dynamicEntrypoint = dynamicEntrypoint;
+        this.sourceType = sourceType;
     }
 
     public boolean isEnableFileWatcher() {
@@ -24,5 +26,8 @@ public class DynamicFileServerConfiguration {
     public String getDynamicEntrypoint() {
         return dynamicEntrypoint;
     }
-}
 
+    public SourceType getSourceType() {
+        return sourceType;
+    }
+}

@@ -7,7 +7,9 @@ import com.pixelservices.flash.utils.LogType;
 import com.pixelservices.flash.utils.PrettyLogger;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.*;
 import java.util.Map;
 import java.util.Set;
@@ -23,6 +25,7 @@ public class DynamicFileServer {
     private final Set<String> registeredRoutes = ConcurrentHashMap.newKeySet();
     private Path rootPath;
     private byte[] indexHtmlContent;
+    private boolean isResourceStream;
 
     public DynamicFileServer(FlashServer server) {
         this.server = server;
@@ -33,16 +36,32 @@ public class DynamicFileServer {
 
     public void serve(String endpoint, DynamicFileServerConfiguration config) {
         endpoint = endpoint.replaceAll("/+$", "");
-        this.rootPath = config.getDestinationPath();
+        SourceType sourceType = config.getSourceType();
+        Path dirPath = config.getDestinationPath();
+
+        if (sourceType == SourceType.RESOURCESTREAM) {
+            try {
+                URL resourceUrl = getClass().getClassLoader().getResource("static");
+                if (resourceUrl == null) {
+                    throw new IllegalArgumentException("Resource folder 'static' not found.");
+                }
+                dirPath = Paths.get(resourceUrl.toURI());
+            } catch (URISyntaxException e) {
+                throw new RuntimeException("Failed to resolve static resource path", e);
+            }
+        }
+        validateDirectoryPath(dirPath, sourceType);
+        this.rootPath = dirPath;
+        this.isResourceStream = sourceType == SourceType.RESOURCESTREAM;
+
         Path indexPath = rootPath.resolve(config.getDynamicEntrypoint());
         boolean isSPA = FileServerUtility.autodetectSPA(rootPath);
-
-        if(isSPA){
-            PrettyLogger.withEmoji("Auto-detected modern SPA in a dynamic server context, make sure to configure your frontend router to handle root correctly!", "⚠️", LogType.WARN);
+        if (isSPA) {
+            PrettyLogger.withEmoji("Auto-detected modern SPA in dynamic context!", "⚠️", LogType.WARN);
         }
 
         try {
-            indexHtmlContent = Files.readAllBytes(indexPath);
+            indexHtmlContent = loadFileContent(indexPath);
         } catch (IOException e) {
             throw new RuntimeException("Failed to read index file at: " + indexPath, e);
         }
@@ -50,13 +69,22 @@ public class DynamicFileServer {
         registerStaticRoutes(endpoint);
         registerDynamicFallback(endpoint);
 
-        if (config.isEnableFileWatcher()) {
+        if (config.isEnableFileWatcher() && !isResourceStream) {
             startDirectoryWatcher(endpoint);
         }
     }
 
+    private void validateDirectoryPath(Path dirPath, SourceType sourceType) {
+        if (dirPath == null) {
+            throw new IllegalArgumentException("Destination path cannot be null");
+        }
+        if (sourceType == SourceType.FILESYSTEM && !Files.isDirectory(dirPath)) {
+            throw new IllegalArgumentException("Provided path is not a directory: " + dirPath);
+        }
+    }
+
     private void registerStaticRoutes(String endpoint) {
-        try (Stream<Path> paths = Files.walk(rootPath)) {
+        try (Stream<Path> paths = getFilePaths(rootPath, isResourceStream)) {
             paths.filter(Files::isRegularFile)
                     .forEach(filePath -> {
                         String relativePath = rootPath.relativize(filePath)
@@ -70,13 +98,24 @@ public class DynamicFileServer {
         }
     }
 
+    private Stream<Path> getFilePaths(Path dirPath, boolean isResourceStream) throws IOException {
+        if (isResourceStream) {
+            try {
+                URL resourceUrl = getClass().getClassLoader().getResource("static");
+                if (resourceUrl == null) {
+                    throw new IllegalArgumentException("Resource folder 'static' not found.");
+                }
+                PrettyLogger.withEmoji("Resource URL: " + resourceUrl, "🔗");
+                return Files.walk(Paths.get(resourceUrl.toURI()));
+            } catch (URISyntaxException e) {
+                throw new IOException("Failed to resolve resource URL", e);
+            }
+        }
+        return Files.walk(dirPath);
+    }
+
     private void registerDynamicFallback(String endpoint) {
         String fallbackRoute = endpoint.endsWith("/") ? endpoint + "*" : endpoint + "/*";
-
-        if (!endpoint.endsWith("/*")) {
-            PrettyLogger.withEmoji("&#FF746CDynamicFileServer endpoint should end with '/*' to handle all routes. Enforcing it as it's required for dynamic routing.", "‼️", LogType.ERROR);
-        }
-
         server.registerRoute(HttpMethod.GET, fallbackRoute, (req, res) -> {
             res.type("text/html");
             return indexHtmlContent;
@@ -91,7 +130,6 @@ public class DynamicFileServer {
         });
     }
 
-    @SuppressWarnings("unchecked")
     private void processWatchEvent(WatchEvent<?> event, String endpoint) {
         Path eventPath = ((WatchEvent<Path>) event).context();
         Path fullPath = rootPath.resolve(eventPath);
@@ -114,20 +152,25 @@ public class DynamicFileServer {
     private void cacheAndRegisterFile(String routePath, Path filePath) {
         if (!registeredRoutes.contains(routePath)) {
             try {
-                byte[] fileContent;
-                String fileName = filePath.toString().toLowerCase();
-                if (fileName.endsWith(".html") || fileName.endsWith(".js")) {
-                    String content = Files.readString(filePath);
-                    content = content.replaceAll("(href|src)=([\"'])/", "$1=$2" + routePath + "/");
-                    fileContent = content.getBytes(StandardCharsets.UTF_8);
-                } else {
-                    fileContent = Files.readAllBytes(filePath);
-                }
+                byte[] fileContent = loadFileContent(filePath);
                 fileCache.put(routePath, fileContent);
                 registerStaticFileRoute(routePath, filePath);
             } catch (IOException e) {
                 PrettyLogger.withEmoji("Error caching file: " + e.getMessage(), "⚠️");
             }
+        }
+    }
+
+    private byte[] loadFileContent(Path filePath) throws IOException {
+        if (isResourceStream) {
+            try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(filePath.toString())) {
+                if (inputStream == null) {
+                    throw new IOException("Resource not found: " + filePath);
+                }
+                return inputStream.readAllBytes();
+            }
+        } else {
+            return Files.readAllBytes(filePath);
         }
     }
 
