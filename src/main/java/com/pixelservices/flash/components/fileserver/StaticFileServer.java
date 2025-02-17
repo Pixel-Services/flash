@@ -259,10 +259,7 @@ public class StaticFileServer {
      * Assumes endpoint is normalized (no trailing slash).
      */
     private String rewriteRoute(String route, String endpoint) {
-        if (route.startsWith(endpoint)) {
-            return route;
-        }
-        return endpoint + route;
+        return FileServerUtility.rewriteRoute(route, endpoint);
     }
 
     /**
@@ -296,7 +293,7 @@ public class StaticFileServer {
             }
             if (url.getProtocol().equals("jar")) {
                 String jarPath = url.getPath().substring(5, url.getPath().indexOf("!"));
-                try (JarFile jar = new JarFile(URLDecoder.decode(jarPath, StandardCharsets.UTF_8.name()))) {
+                try (JarFile jar = new JarFile(URLDecoder.decode(jarPath, StandardCharsets.UTF_8))) {
                     Enumeration<JarEntry> entries = jar.entries();
                     while (entries.hasMoreElements()) {
                         JarEntry entry = entries.nextElement();
