@@ -192,7 +192,7 @@ public class Response {
                 "headers=" + headers +
                 ", statusCode=" + statusCode +
                 ", contentType='" + contentType + '\'' +
-                ", body=" + body +
+                ", body=" + body.toString() +
                 ", finalized=" + finalized +
                 '}';
     }

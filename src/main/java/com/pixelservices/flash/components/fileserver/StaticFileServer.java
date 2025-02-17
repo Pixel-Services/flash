@@ -6,25 +6,29 @@ import com.pixelservices.flash.models.HttpMethod;
 import com.pixelservices.flash.utils.PrettyLogger;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
  * StaticFileServer serves static files from a specified directory and registers routes dynamically.
  * It supports file watching for changes in the directory to update routes in real-time.
+ * This version supports resources packaged inside JAR files using getResourceAsStream.
  */
 public class StaticFileServer {
 
@@ -53,36 +57,39 @@ public class StaticFileServer {
      * @param config   the configuration for the static file server
      */
     public void serve(String endpoint, StaticFileServerConfiguration config) {
-        // Get the destination path as a string.
         String dirPathStr = config.getDestinationPath();
         SourceType sourceType = config.getSourceType();
-        Path dirPath;
 
         if (sourceType == SourceType.RESOURCESTREAM) {
-            try {
-                URL resourceUrl = getClass().getClassLoader().getResource(dirPathStr);
-                if (resourceUrl == null) {
-                    throw new IllegalArgumentException("Resource folder '" + dirPathStr + "' not found.");
+            // For resources inside a jar (or on the classpath), list files via a helper method.
+            List<String> resourceFiles = listResourceFiles(dirPathStr);
+            // Process each resource file (using parallel stream if desired)
+            resourceFiles.parallelStream().forEach(resourceFullPath -> {
+                // Remove the configured folder prefix to obtain a relative path.
+                String relativePath = resourceFullPath.substring(dirPathStr.length());
+                if (relativePath.startsWith("/")) {
+                    relativePath = relativePath.substring(1);
                 }
-                dirPath = Paths.get(resourceUrl.toURI());
-            } catch (URISyntaxException e) {
-                throw new RuntimeException("Failed to resolve static resource path", e);
-            }
+                registerResourceRoute(resourceFullPath, relativePath, endpoint, config);
+            });
         } else {
-            dirPath = Paths.get(dirPathStr);
-        }
-
-        validateDirectoryPath(dirPath, sourceType);
-        boolean isResourceStream = sourceType == SourceType.RESOURCESTREAM;
-
-        try (Stream<Path> paths = getFilePaths(dirPath, isResourceStream, dirPathStr)) {
-            paths.parallel().forEach(filePath -> registerFileRoute(filePath, dirPath, endpoint, config));
-            if (config.isEnableFileWatcher() && !isResourceStream) {
-                startDirectoryWatcher(endpoint, dirPath);
+            // For a file system directory, use Paths and Files.walk.
+            Path dirPath = Paths.get(dirPathStr);
+            validateDirectoryPath(dirPath, sourceType);
+            try (Stream<Path> paths = Files.walk(dirPath)) {
+                paths.parallel().forEach(filePath -> registerFileRoute(filePath, dirPath, endpoint, config));
+                if (config.isEnableFileWatcher()) {
+                    startDirectoryWatcher(endpoint, dirPath);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Error listing directory: " + dirPath, e);
             }
         }
     }
 
+    /**
+     * Registers a file system–based static file route.
+     */
     private void registerFileRoute(Path filePath, Path dirPath, String endpoint, StaticFileServerConfiguration config) {
         if (Files.isRegularFile(filePath)) {
             String relativePath = dirPath.relativize(filePath).toString().replace("\\", "/");
@@ -91,8 +98,8 @@ public class StaticFileServer {
             }
             String routePath = endpoint + "/" + relativePath;
             if (!fileHashes.containsKey(routePath)) {
-                cacheFileContent(filePath, routePath, endpoint);
-                registerStaticFileRoute(routePath, filePath);
+                cacheFileContent(filePath, routePath, endpoint, false, null);
+                registerStaticFileRoute(routePath, filePath, false, null);
             }
             if (relativePath.equals("index.html") && config.isEnableIndexRedirect()) {
                 server.redirect(endpoint, routePath);
@@ -101,12 +108,33 @@ public class StaticFileServer {
     }
 
     /**
+     * Registers a resource-based static file route (for files loaded via getResourceAsStream).
+     *
+     * @param resourceName the full resource name (e.g. "static/index.html")
+     * @param relativePath the path relative to the resource folder
+     * @param endpoint     the base endpoint for serving files
+     * @param config       the static file server configuration
+     */
+    private void registerResourceRoute(String resourceName, String relativePath, String endpoint, StaticFileServerConfiguration config) {
+        String routePath = endpoint + "/" + relativePath;
+        if (!fileHashes.containsKey(routePath)) {
+            cacheFileContent(null, routePath, endpoint, true, resourceName);
+            registerStaticFileRoute(routePath, null, true, resourceName);
+        }
+        if (relativePath.equals("index.html") && config.isEnableIndexRedirect()) {
+            server.redirect(endpoint, routePath);
+        }
+    }
+
+    /**
      * Registers a static file route with the server.
      *
-     * @param routePath the route path to register
-     * @param filePath  the file path associated with the route
+     * @param routePath       the route path to register
+     * @param filePath        the file system path (null if resource-based)
+     * @param isResourceStream whether the file is loaded from a resource
+     * @param resourceName    the resource name (if resource-based)
      */
-    private void registerStaticFileRoute(String routePath, Path filePath) {
+    private void registerStaticFileRoute(String routePath, Path filePath, boolean isResourceStream, String resourceName) {
         if (registeredRoutes.contains(routePath)) {
             return;
         }
@@ -117,10 +145,14 @@ public class StaticFileServer {
                 return res.getBody();
             }
             String contentType;
-            try {
-                contentType = Files.probeContentType(filePath);
-            } catch (IOException e) {
-                contentType = "application/octet-stream";
+            if (isResourceStream) {
+                contentType = getContentType(resourceName);
+            } else {
+                try {
+                    contentType = Files.probeContentType(filePath);
+                } catch (IOException e) {
+                    contentType = "application/octet-stream";
+                }
             }
             res.status(200).type(contentType).body(fileContent);
             return res.getBody();
@@ -132,28 +164,61 @@ public class StaticFileServer {
     /**
      * Caches the content of a file and rewrites URLs in HTML and JavaScript files.
      *
-     * @param filePath  the path to the file
-     * @param routePath the route path to cache
-     * @param endpoint  the base endpoint for serving files
+     * @param filePath         the file system path (or null if resource)
+     * @param routePath        the route path used for caching
+     * @param endpoint         the base endpoint for serving files
+     * @param isResourceStream whether to load from a resource
+     * @param resourceName     the resource name (if resource-based)
      */
-    private void cacheFileContent(Path filePath, String routePath, String endpoint) {
+    private void cacheFileContent(Path filePath, String routePath, String endpoint,
+                                  boolean isResourceStream, String resourceName) {
         try {
             byte[] fileContent;
-            String fileName = filePath.toString().toLowerCase();
+            String fileName = isResourceStream ? resourceName.toLowerCase() : filePath.toString().toLowerCase();
             if (fileName.endsWith(".html")) {
-                String originalHtml = Files.readString(filePath);
+                String originalHtml;
+                if (isResourceStream) {
+                    originalHtml = new String(getResourceBytes(resourceName), StandardCharsets.UTF_8);
+                } else {
+                    originalHtml = Files.readString(filePath);
+                }
                 String rewrittenHtml = rewriteHtml(originalHtml, endpoint);
                 fileContent = rewrittenHtml.getBytes(StandardCharsets.UTF_8);
             } else if (fileName.endsWith(".js")) {
-                String originalJs = Files.readString(filePath);
+                String originalJs;
+                if (isResourceStream) {
+                    originalJs = new String(getResourceBytes(resourceName), StandardCharsets.UTF_8);
+                } else {
+                    originalJs = Files.readString(filePath);
+                }
                 String rewrittenJs = rewriteJs(originalJs, endpoint);
                 fileContent = rewrittenJs.getBytes(StandardCharsets.UTF_8);
             } else {
-                fileContent = Files.readAllBytes(filePath);
+                if (isResourceStream) {
+                    fileContent = getResourceBytes(resourceName);
+                } else {
+                    fileContent = Files.readAllBytes(filePath);
+                }
             }
             fileCache.put(routePath, fileContent);
         } catch (IOException e) {
             PrettyLogger.withEmoji("Error caching file: " + e.getMessage(), "⚠️");
+        }
+    }
+
+    /**
+     * Reads all bytes from a resource using getResourceAsStream.
+     *
+     * @param resourceName the resource name (full path)
+     * @return the file content as a byte array
+     * @throws IOException if an I/O error occurs
+     */
+    private byte[] getResourceBytes(String resourceName) throws IOException {
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourceName)) {
+            if (is == null) {
+                throw new IllegalArgumentException("Resource not found: " + resourceName);
+            }
+            return is.readAllBytes();
         }
     }
 
@@ -182,8 +247,10 @@ public class StaticFileServer {
      * Assumes endpoint is normalized (no trailing slash).
      */
     private String rewriteHtml(String htmlContent, String endpoint) {
-        htmlContent = htmlContent.replaceAll("href=\"(?!\\Q" + endpoint + "\\E/)(/[^\"']*)\"", "href=\"" + endpoint + "$1\"")
-                .replaceAll("src=\"(?!\\Q" + endpoint + "\\E/)(/[^\"']*)\"", "src=\"" + endpoint + "$1\"");
+        htmlContent = htmlContent.replaceAll("href=\"(?!\\Q" + endpoint + "\\E/)(/[^\"']*)\"",
+                        "href=\"" + endpoint + "$1\"")
+                .replaceAll("src=\"(?!\\Q" + endpoint + "\\E/)(/[^\"']*)\"",
+                        "src=\"" + endpoint + "$1\"");
         return htmlContent;
     }
 
@@ -214,27 +281,48 @@ public class StaticFileServer {
     }
 
     /**
-     * Returns a stream of file paths in the specified directory.
+     * Lists resource files under the specified resource folder.
+     * Works for both file-system (e.g. running in IDE) and jar protocols.
      *
-     * @param dirPath          the directory path to list
-     * @param isResourceStream whether to use the resource stream
-     * @param dirPathStr       the original directory path string from configuration
-     * @return a stream of file paths in the directory
+     * @param path the resource folder path (e.g. "static")
+     * @return a list of resource file names (e.g. "static/index.html", "static/css/style.css")
      */
-    private Stream<Path> getFilePaths(Path dirPath, boolean isResourceStream, String dirPathStr) {
+    private List<String> listResourceFiles(String path) {
+        List<String> fileList = new ArrayList<>();
         try {
-            if (isResourceStream) {
-                URL resourceUrl = getClass().getClassLoader().getResource(dirPathStr);
-                if (resourceUrl == null) {
-                    throw new IllegalArgumentException("Resource not found: " + dirPathStr);
-                }
-                PrettyLogger.withEmoji("Resource URL: " + resourceUrl, "🔗");
-                return Files.walk(Paths.get(resourceUrl.toURI()));
+            URL url = getClass().getClassLoader().getResource(path);
+            if (url == null) {
+                throw new IllegalArgumentException("Resource path not found: " + path);
             }
-            return Files.walk(dirPath);
+            if (url.getProtocol().equals("jar")) {
+                String jarPath = url.getPath().substring(5, url.getPath().indexOf("!"));
+                try (JarFile jar = new JarFile(URLDecoder.decode(jarPath, StandardCharsets.UTF_8.name()))) {
+                    Enumeration<JarEntry> entries = jar.entries();
+                    while (entries.hasMoreElements()) {
+                        JarEntry entry = entries.nextElement();
+                        String entryName = entry.getName();
+                        if (entryName.startsWith(path) && !entry.isDirectory()) {
+                            fileList.add(entryName);
+                        }
+                    }
+                }
+            } else if (url.getProtocol().equals("file")) {
+                Path dir = Paths.get(url.toURI());
+                try (Stream<Path> walk = Files.walk(dir)) {
+                    fileList = walk.filter(Files::isRegularFile)
+                            .map(p -> {
+                                Path rel = dir.relativize(p);
+                                return path + "/" + rel.toString().replace("\\", "/");
+                            })
+                            .collect(Collectors.toList());
+                }
+            } else {
+                throw new UnsupportedOperationException("Unsupported protocol: " + url.getProtocol());
+            }
         } catch (IOException | URISyntaxException e) {
-            throw new RuntimeException("Error listing directory: " + dirPath, e);
+            throw new RuntimeException("Error listing resource files for path: " + path, e);
         }
+        return fileList;
     }
 
     /**
@@ -308,8 +396,8 @@ public class StaticFileServer {
 
         if (existingHash == null || !existingHash.equals(newHash)) {
             fileHashes.put(routePath, newHash);
-            cacheFileContent(filePath, routePath, endpoint);
-            registerStaticFileRoute(routePath, filePath);
+            cacheFileContent(filePath, routePath, endpoint, false, null);
+            registerStaticFileRoute(routePath, filePath, false, null);
         }
     }
 
@@ -343,5 +431,21 @@ public class StaticFileServer {
         } catch (NoSuchAlgorithmException | IOException e) {
             throw new RuntimeException("SHA-256 algorithm not available", e);
         }
+    }
+
+    /**
+     * A simple content type mapping based on file name extension.
+     *
+     * @param fileName the name of the file (or resource)
+     * @return a MIME type string
+     */
+    private String getContentType(String fileName) {
+        if (fileName.endsWith(".html")) return "text/html";
+        if (fileName.endsWith(".js")) return "application/javascript";
+        if (fileName.endsWith(".css")) return "text/css";
+        if (fileName.endsWith(".png")) return "image/png";
+        if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) return "image/jpeg";
+        // Add more mappings as necessary.
+        return "application/octet-stream";
     }
 }
