@@ -27,10 +27,9 @@ import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * FlashServer is a lightweight and asynchronous HTTP server optimized for concurrency.
@@ -52,6 +51,9 @@ public class FlashServer {
     private final DynamicFileServer dynamicFileServer;
 
     private static final Pattern PATH_ONLY_PATTERN = Pattern.compile("^[^?]+");
+
+    // A virtual thread executor for handling client connections concurrently.
+    private static final ExecutorService VIRTUAL_THREAD_EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
 
     public FlashServer(int port, FlashConfiguration config) {
         this.routeHandlers = new ConcurrentHashMap<>();
@@ -108,8 +110,8 @@ public class FlashServer {
             public void completed(AsynchronousSocketChannel clientChannel, Object attachment) {
                 // Immediately accept the next connection.
                 acceptNextConnection();
-                // Use virtual threads to handle the client concurrently.
-                Thread.startVirtualThread(() -> handleClient(clientChannel));
+                // Submit the client handling task to our virtual thread executor.
+                VIRTUAL_THREAD_EXECUTOR.submit(() -> handleClient(clientChannel));
             }
             @Override
             public void failed(Throwable exc, Object attachment) {
@@ -193,35 +195,44 @@ public class FlashServer {
     // ------------------ Request Handling ------------------ //
 
     private void handleClient(AsynchronousSocketChannel clientChannel) {
-        ByteBuffer buffer = ByteBuffer.allocateDirect(2048);
+        // Acquire a reusable direct buffer from the pool.
+        ByteBuffer buffer = BufferPool.acquire();
         clientChannel.read(buffer, buffer, new CompletionHandler<>() {
             @Override
             public void completed(Integer bytesRead, ByteBuffer buf) {
                 try {
                     String rawRequest = decodeBuffer(buf);
+                    // Release the buffer back to the pool now that we've read the request.
+                    BufferPool.release(buf);
+
                     RequestInfo reqInfo = parseRequest(rawRequest);
                     RouteMatch match = findRoute(reqInfo);
+
                     if (match == null) {
-                        throw new UnmatchedHandlerException("No handler found for "
-                                + reqInfo.getMethod() + " " + reqInfo.getPath());
+                        throw new UnmatchedHandlerException("No handler found for " + reqInfo.getMethod() + " " + reqInfo.getPath());
                     }
+
                     Request request = new Request(rawRequest, (InetSocketAddress) clientChannel.getRemoteAddress(), match.getParams());
                     Response response = new Response();
                     RequestHandler handler = match.getEntry().getHandler();
                     handler.setRequestResponse(request, response);
                     validateHandlerResources(handler);
+
                     Object responseBody = handler.handle();
                     response.body(convertToResponseBody(responseBody));
+
+                    // Send response without closing the socket prematurely.
                     sendResponse(response, clientChannel);
                 } catch (Exception e) {
                     new RequestExceptionHandler(clientChannel, e).handle();
-                } finally {
                     closeSocket(clientChannel);
                 }
             }
+
             @Override
             public void failed(Throwable exc, ByteBuffer buf) {
                 new RequestExceptionHandler(clientChannel, new Exception(exc)).handle();
+                BufferPool.release(buf);
                 closeSocket(clientChannel);
             }
         });
@@ -289,21 +300,22 @@ public class FlashServer {
         return dynamicMatch.orElse(null);
     }
 
-
     // ------------------ Response and Socket Utilities ------------------ //
 
     private void sendResponse(Response response, AsynchronousSocketChannel clientChannel) {
         response.finalizeResponse();
         ByteBuffer responseBuffer = response.getSerialized();
-        clientChannel.write(responseBuffer, responseBuffer, new CompletionHandler<Integer, ByteBuffer>() {
+
+        clientChannel.write(responseBuffer, responseBuffer, new CompletionHandler<>() {
             @Override
             public void completed(Integer bytesWritten, ByteBuffer buf) {
                 if (buf.hasRemaining()) {
-                    clientChannel.write(buf, buf, this);
+                    clientChannel.write(buf, buf, this); // Continue writing remaining data.
                 } else {
-                    closeSocket(clientChannel);
+                    closeSocket(clientChannel); // Close only after full transmission.
                 }
             }
+
             @Override
             public void failed(Throwable exc, ByteBuffer buf) {
                 PrettyLogger.withEmoji("Error sending response: " + exc.getMessage(), "⚠️");
@@ -334,7 +346,6 @@ public class FlashServer {
             default -> responseBody.toString();
         };
     }
-
 
     /**
      * Creates a route key based on the HTTP method and path.
@@ -434,5 +445,25 @@ public class FlashServer {
         public RouteEntry getEntry() { return entry; }
         public Map<String, String> getParams() { return params; }
     }
-}
 
+    /**
+     * A simple pool for reusing direct ByteBuffers.
+     */
+    private static class BufferPool {
+        private static final int BUFFER_SIZE = 10240;
+        private static final ConcurrentLinkedQueue<ByteBuffer> pool = new ConcurrentLinkedQueue<>();
+
+        public static ByteBuffer acquire() {
+            ByteBuffer buffer = pool.poll();
+            if (buffer == null) {
+                return ByteBuffer.allocateDirect(BUFFER_SIZE);
+            }
+            buffer.clear();
+            return buffer;
+        }
+
+        public static void release(ByteBuffer buffer) {
+            pool.offer(buffer);
+        }
+    }
+}
