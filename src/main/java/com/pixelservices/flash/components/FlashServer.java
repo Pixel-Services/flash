@@ -9,10 +9,7 @@ import com.pixelservices.flash.exceptions.ServerStartupException;
 import com.pixelservices.flash.exceptions.UnmatchedHandlerException;
 import com.pixelservices.flash.lifecycle.Request;
 import com.pixelservices.flash.lifecycle.Response;
-import com.pixelservices.flash.models.HandlerSpecification;
-import com.pixelservices.flash.models.HandlerType;
-import com.pixelservices.flash.models.HttpMethod;
-import com.pixelservices.flash.models.SimpleHandler;
+import com.pixelservices.flash.models.*;
 import com.pixelservices.flash.swagger.OpenAPIConfiguration;
 import com.pixelservices.flash.swagger.OpenAPISchemaGenerator;
 import com.pixelservices.flash.swagger.OpenAPIUITemplate;
@@ -38,6 +35,7 @@ public class FlashServer {
     // Compatibility maps (if needed elsewhere)
     private final ConcurrentHashMap<String, RequestHandler> routeHandlers;
     private final ConcurrentHashMap<String, HandlerType> handlerTypes;
+    private final List<Middleware> middlewares = new CopyOnWriteArrayList<>();
 
     // Precompiled route collections for fast lookup.
     private final Map<String, RouteEntry> literalRoutes = new ConcurrentHashMap<>();
@@ -100,6 +98,11 @@ public class FlashServer {
             throw new ServerStartupException("Error starting server", e);
         }
     }
+
+    public void use(Middleware middleware) {
+        middlewares.add(middleware);
+    }
+
 
     /**
      * Accepts incoming connections asynchronously.
@@ -218,6 +221,15 @@ public class FlashServer {
                     handler.setRequestResponse(request, response);
                     validateHandlerResources(handler);
 
+                    for (Middleware m : middlewares) {
+                        boolean proceed = m.process(request, response);
+                        if (!proceed) {
+                            sendResponse(response, clientChannel);
+                            return;
+                        }
+                    }
+
+
                     Object responseBody = handler.handle();
                     response.body(convertToResponseBody(responseBody));
 
@@ -251,6 +263,7 @@ public class FlashServer {
      */
     private RequestInfo parseRequest(String rawRequest) {
         String[] lines = rawRequest.split("\r\n");
+        PrettyLogger.log("Request: " + lines[0]);
         if (lines.length == 0 || lines[0].isEmpty()) {
             throw new IllegalArgumentException("Empty request");
         }
