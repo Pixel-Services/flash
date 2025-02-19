@@ -15,10 +15,6 @@ import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
@@ -32,11 +28,8 @@ import java.util.stream.Stream;
 public class DynamicFileServer {
 
     private final FlashServer server;
-    private final ThreadPoolExecutor executor;
-    private final ConcurrentHashMap<String, byte[]> fileCache = new ConcurrentHashMap<>();
-    private final Set<String> registeredRoutes = ConcurrentHashMap.newKeySet();
-    private Path rootPath; // Used only for filesystem-based sources.
-    private String resourceBasePath; // Used only for RESOURCESTREAM.
+    private final AssetCache assetCache = new AssetCache();
+    private Path rootPath;
     private byte[] indexHtmlContent;
     private SourceType sourceType;
 
@@ -47,9 +40,6 @@ public class DynamicFileServer {
      */
     public DynamicFileServer(FlashServer server) {
         this.server = server;
-        this.executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(
-                Runtime.getRuntime().availableProcessors()
-        );
     }
 
     /**
@@ -60,22 +50,15 @@ public class DynamicFileServer {
      * @param config   the configuration for the dynamic file server
      */
     public void serve(String endpoint, DynamicFileServerConfiguration config) {
-        // Remove trailing slashes from endpoint.
         endpoint = endpoint.replaceAll("/+$", "");
         this.sourceType = config.getSourceType();
         String destString = config.getDestinationPath();
         boolean isResourceStream = (sourceType == SourceType.RESOURCESTREAM);
 
-        // Resolve the root “directory.”
-        if (isResourceStream) {
-            // For resource streams we do not convert to a file system path.
-            // Instead, we keep the destination string for later resource lookups.
-            this.resourceBasePath = destString;
-        } else {
+        if (!isResourceStream) {
             this.rootPath = Paths.get(destString);
         }
 
-        // Load the dynamic entrypoint (e.g. index.html).
         String entrypoint = config.getDynamicEntrypoint();
         try {
             if (isResourceStream) {
@@ -94,16 +77,9 @@ public class DynamicFileServer {
             throw new RuntimeException("Failed to read index file: " + entrypoint, e);
         }
 
-        // Register all static file routes.
         registerStaticRoutes(endpoint, isResourceStream, destString);
 
-        // Register the fallback route for dynamic (e.g. SPA) routing.
         registerDynamicFallback(endpoint);
-
-        // Start file watcher only for FILESYSTEM source.
-        if (!isResourceStream && config.isEnableFileWatcher()) {
-            startDirectoryWatcher(endpoint);
-        }
     }
 
     /**
@@ -155,51 +131,13 @@ public class DynamicFileServer {
     }
 
     /**
-     * Starts a directory watcher to monitor file system changes and update routes dynamically.
-     * Only applicable for FILESYSTEM source type.
-     *
-     * @param endpoint the base endpoint for file routes
-     */
-    private void startDirectoryWatcher(String endpoint) {
-        executor.submit(() -> {
-            FileServerUtility.startDirectoryWatcher(rootPath, (event, rootDir) -> processWatchEvent(event, endpoint));
-        });
-    }
-
-    /**
-     * Processes a file system watch event by updating routes accordingly.
-     *
-     * @param event    the watch event
-     * @param endpoint the base endpoint for file routes
-     */
-    @SuppressWarnings("unchecked")
-    private void processWatchEvent(WatchEvent<?> event, String endpoint) {
-        Path eventPath = ((WatchEvent<Path>) event).context();
-        Path fullPath = rootPath.resolve(eventPath);
-        String relativePath = rootPath.relativize(fullPath).toString().replace("\\", "/");
-        String routePath = endpoint + "/" + relativePath;
-        WatchEvent.Kind<?> kind = event.kind();
-
-        if (kind == StandardWatchEventKinds.ENTRY_CREATE ||
-                kind == StandardWatchEventKinds.ENTRY_MODIFY) {
-            if (Files.isRegularFile(fullPath)) {
-                cacheAndRegisterFile(routePath, fullPath);
-            }
-        } else if (kind == StandardWatchEventKinds.ENTRY_DELETE) {
-            fileCache.remove(routePath);
-            server.unregisterRoute(HttpMethod.GET, routePath);
-            registeredRoutes.remove(routePath);
-        }
-    }
-
-    /**
      * Caches the content of a file (from the file system) and registers a static file route.
      *
      * @param routePath the route path to register
      * @param filePath  the file system path for the content
      */
     private void cacheAndRegisterFile(String routePath, Path filePath) {
-        if (!registeredRoutes.contains(routePath)) {
+        if (!assetCache.contains(routePath)) {
             try {
                 byte[] fileContent;
                 String fileName = filePath.toString().toLowerCase();
@@ -210,7 +148,7 @@ public class DynamicFileServer {
                 } else {
                     fileContent = Files.readAllBytes(filePath);
                 }
-                fileCache.put(routePath, fileContent);
+                assetCache.put(routePath, fileContent);
                 registerStaticFileRoute(routePath, filePath);
             } catch (IOException e) {
                 PrettyLogger.withEmoji("Error caching file: " + e.getMessage(), "⚠️");
@@ -226,7 +164,7 @@ public class DynamicFileServer {
      */
     private void registerStaticFileRoute(String routePath, Path filePath) {
         server.registerRoute(HttpMethod.GET, routePath, (req, res) -> {
-            byte[] fileContent = fileCache.get(routePath);
+            byte[] fileContent = assetCache.get(routePath);
             if (fileContent == null) {
                 res.status(404).body("File not found");
                 return res.getBody();
@@ -240,7 +178,6 @@ public class DynamicFileServer {
             res.status(200).type(contentType).body(fileContent);
             return res.getBody();
         }, HandlerType.STATIC);
-        registeredRoutes.add(routePath);
     }
 
     /**
@@ -250,7 +187,7 @@ public class DynamicFileServer {
      * @param resourcePath the full resource path (e.g. "static/index.html")
      */
     private void cacheAndRegisterResourceFile(String routePath, String resourcePath) {
-        if (!registeredRoutes.contains(routePath)) {
+        if (!assetCache.contains(routePath)) {
             try {
                 byte[] fileContent;
                 String lowerCaseResource = resourcePath.toLowerCase();
@@ -262,7 +199,6 @@ public class DynamicFileServer {
                         }
                         content = new String(is.readAllBytes(), StandardCharsets.UTF_8);
                     }
-                    // Simple rewriting logic for resource paths.
                     content = content.replaceAll("(href|src)=([\"'])/", "$1=$2" + routePath + "/");
                     fileContent = content.getBytes(StandardCharsets.UTF_8);
                 } else {
@@ -273,7 +209,7 @@ public class DynamicFileServer {
                         fileContent = is.readAllBytes();
                     }
                 }
-                fileCache.put(routePath, fileContent);
+                assetCache.put(routePath, fileContent);
                 registerStaticResourceFileRoute(routePath, resourcePath);
             } catch (IOException e) {
                 PrettyLogger.withEmoji("Error caching resource file: " + e.getMessage(), "⚠️");
@@ -289,7 +225,7 @@ public class DynamicFileServer {
      */
     private void registerStaticResourceFileRoute(String routePath, String resourcePath) {
         server.registerRoute(HttpMethod.GET, routePath, (req, res) -> {
-            byte[] fileContent = fileCache.get(routePath);
+            byte[] fileContent = assetCache.get(routePath);
             if (fileContent == null) {
                 res.status(404).body("File not found");
                 return res.getBody();
@@ -298,7 +234,6 @@ public class DynamicFileServer {
             res.status(200).type(contentType).body(fileContent);
             return res.getBody();
         }, HandlerType.STATIC);
-        registeredRoutes.add(routePath);
     }
 
     /**
@@ -313,7 +248,6 @@ public class DynamicFileServer {
         if (fileName.endsWith(".css")) return "text/css";
         if (fileName.endsWith(".png")) return "image/png";
         if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) return "image/jpeg";
-        // Add more mappings as necessary.
         return "application/octet-stream";
     }
 
@@ -333,7 +267,7 @@ public class DynamicFileServer {
             }
             if (url.getProtocol().equals("jar")) {
                 String jarPath = url.getPath().substring(5, url.getPath().indexOf("!"));
-                try (JarFile jar = new JarFile(URLDecoder.decode(jarPath, StandardCharsets.UTF_8.name()))) {
+                try (JarFile jar = new JarFile(URLDecoder.decode(jarPath, StandardCharsets.UTF_8))) {
                     Enumeration<JarEntry> entries = jar.entries();
                     while (entries.hasMoreElements()) {
                         JarEntry entry = entries.nextElement();
