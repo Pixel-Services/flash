@@ -53,6 +53,12 @@ public class FlashServer {
     // A virtual thread executor for handling client connections concurrently.
     private static final ExecutorService VIRTUAL_THREAD_EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
 
+    // Buffer Pool Configuration
+    private static final int BUFFER_POOL_SIZE = 1024; // Example pool size, adjust as needed
+    private static final int BUFFER_SIZE = 8192; // Increased buffer size to 8KB, adjust as needed
+    private static final BufferPool REQUEST_BUFFER_POOL = new BufferPool(BUFFER_POOL_SIZE, BUFFER_SIZE);
+
+
     public FlashServer(int port, FlashConfiguration config) {
         this.routeHandlers = new ConcurrentHashMap<>();
         this.handlerTypes = new ConcurrentHashMap<>();
@@ -81,7 +87,7 @@ public class FlashServer {
                     "&#reset",
                     "      *      ",
                     "     **      ",
-                    "    ***       &#reset Started &#80EF80successfully&#reset on port &#FF746C" + port + "&#reset",
+                    "    ***       &#reset Started PEF80successfully&#reset on port &#FF746C" + port + "&#reset",
                     "   *******    &#reset Startup time: &#FF746C" + elapsedTime + "&#reset ms",
                     "      ***     &#reset Serving &#FF746C" + routeHandlers.size() + "&#reset handlers",
                     "      **     ",
@@ -197,55 +203,97 @@ public class FlashServer {
 
     // ------------------ Request Handling ------------------ //
 
+    private static class ClientAttachment { // Class to hold state per client connection
+        ByteBuffer buffer;
+        StringBuilder requestData;
+        AsynchronousSocketChannel channel;
+
+        public ClientAttachment(ByteBuffer buffer, AsynchronousSocketChannel channel) {
+            this.buffer = buffer;
+            this.requestData = new StringBuilder();
+            this.channel = channel;
+        }
+    }
+
     private void handleClient(AsynchronousSocketChannel clientChannel) {
-        // Acquire a reusable direct buffer from the pool.
-        ByteBuffer buffer = BufferPool.acquire();
-        clientChannel.read(buffer, buffer, new CompletionHandler<>() {
+        ByteBuffer buffer = REQUEST_BUFFER_POOL.acquire();
+        ClientAttachment attachment = new ClientAttachment(buffer, clientChannel); // Create attachment
+        startRead(attachment); // Start the initial read
+    }
+
+    private void startRead(ClientAttachment attachment) {
+        attachment.buffer.clear(); // Clear buffer for new read
+        attachment.channel.read(attachment.buffer, attachment, new CompletionHandler<Integer, ClientAttachment>() {
             @Override
-            public void completed(Integer bytesRead, ByteBuffer buf) {
-                try {
-                    String rawRequest = decodeBuffer(buf);
-                    // Release the buffer back to the pool now that we've read the request.
-                    BufferPool.release(buf);
+            public void completed(Integer bytesRead, ClientAttachment clientAttachment) {
+                if (bytesRead > 0) {
+                    ByteBuffer buf = clientAttachment.buffer;
+                    buf.flip();
+                    String chunk = StandardCharsets.UTF_8.decode(buf).toString();
+                    clientAttachment.requestData.append(chunk);
+                    buf.clear();
 
-                    RequestInfo reqInfo = parseRequest(rawRequest);
-                    RouteMatch match = findRoute(reqInfo);
+                    String fullRequestData = clientAttachment.requestData.toString();
+                    if (fullRequestData.contains("\r\n\r\n")) {
+                        try {
 
-                    if (match == null) {
-                        throw new UnmatchedHandlerException("No handler found for " + reqInfo.getMethod() + " " + reqInfo.getPath());
-                    }
+                            Request request = new Request(fullRequestData, (InetSocketAddress) clientAttachment.channel.getRemoteAddress(), Collections.emptyMap());
+                            Response response = new Response();
 
-                    Request request = new Request(rawRequest, (InetSocketAddress) clientChannel.getRemoteAddress(), match.getParams());
-                    Response response = new Response();
-                    RequestHandler handler = match.getEntry().getHandler();
-                    handler.setRequestResponse(request, response);
-                    validateHandlerResources(handler);
+                            for (Middleware m : middlewares) {
+                                boolean proceed = m.process(request, response);
+                                if (!proceed) {
+                                    sendResponse(response, clientAttachment.channel);
+                                    return;
+                                }
+                            }
 
-                    for (Middleware m : middlewares) {
-                        boolean proceed = m.process(request, response);
-                        if (!proceed) {
-                            sendResponse(response, clientChannel);
-                            return;
+                            RequestInfo reqInfo = parseRequest(fullRequestData);
+                            RouteMatch match = findRoute(reqInfo);
+
+                            if (match == null) {
+                                throw new UnmatchedHandlerException("No handler found for " + reqInfo.getMethod() + " " + reqInfo.getPath());
+                            }
+
+                            request = new Request(fullRequestData, (InetSocketAddress) clientAttachment.channel.getRemoteAddress(), match.getParams());
+                            response = new Response();
+                            RequestHandler handler = match.getEntry().getHandler();
+                            handler.setRequestResponse(request, response);
+                            validateHandlerResources(handler);
+
+                            Object responseBody = handler.handle();
+                            response.body(convertToResponseBody(responseBody));
+                            sendResponse(response, clientAttachment.channel);
+
+                        } catch (Exception e) {
+                            new RequestExceptionHandler(clientAttachment.channel, e).handle();
+                        } finally {
+                            REQUEST_BUFFER_POOL.release(clientAttachment.buffer);
+                            closeSocket(clientAttachment.channel);
                         }
+                        return; // Request processed, exit handler
                     }
 
+                    // If not a full request yet, read more data
+                    startRead(clientAttachment); // Continue reading from the channel
 
-                    Object responseBody = handler.handle();
-                    response.body(convertToResponseBody(responseBody));
-
-                    // Send response without closing the socket prematurely.
-                    sendResponse(response, clientChannel);
-                } catch (Exception e) {
-                    new RequestExceptionHandler(clientChannel, e).handle();
-                    closeSocket(clientChannel);
+                } else if (bytesRead == -1) {
+                    // Client closed connection gracefully
+                    REQUEST_BUFFER_POOL.release(clientAttachment.buffer);
+                    closeSocket(clientAttachment.channel);
+                } else {
+                    // bytesRead == 0 might indicate no data immediately available, but channel is still open.
+                    // You might need to handle this case based on your requirements,
+                    // perhaps by retrying the read or implementing a timeout.
+                    startRead(clientAttachment); // Try reading again
                 }
             }
 
             @Override
-            public void failed(Throwable exc, ByteBuffer buf) {
-                new RequestExceptionHandler(clientChannel, new Exception(exc)).handle();
-                BufferPool.release(buf);
-                closeSocket(clientChannel);
+            public void failed(Throwable exc, ClientAttachment clientAttachment) {
+                new RequestExceptionHandler(clientAttachment.channel, new Exception(exc)).handle();
+                REQUEST_BUFFER_POOL.release(clientAttachment.buffer);
+                closeSocket(clientAttachment.channel);
             }
         });
     }
@@ -263,7 +311,6 @@ public class FlashServer {
      */
     private RequestInfo parseRequest(String rawRequest) {
         String[] lines = rawRequest.split("\r\n");
-        PrettyLogger.log("Request: " + lines[0]);
         if (lines.length == 0 || lines[0].isEmpty()) {
             throw new IllegalArgumentException("Empty request");
         }
@@ -285,6 +332,7 @@ public class FlashServer {
             return new RouteMatch(literalEntry, Collections.emptyMap());
         }
 
+        // Try sequential stream first for potential minor performance gain if parallel overhead is significant
         Optional<RouteMatch> paramMatch = parameterizedRoutes.parallelStream()
                 .filter(e -> e.getMethod() == reqInfo.getMethod())
                 .map(e -> {
@@ -297,7 +345,7 @@ public class FlashServer {
             return paramMatch.get();
         }
 
-        Optional<RouteMatch> dynamicMatch = dynamicRoutes.parallelStream()
+        Optional<RouteMatch> dynamicMatch = dynamicRoutes.parallelStream() // Use sequential stream as well initially
                 .filter(e -> e.getMethod() == reqInfo.getMethod())
                 .map(e -> {
                     String prefix = e.getPath().substring(0, e.getPath().length() - 2);
@@ -323,16 +371,14 @@ public class FlashServer {
             @Override
             public void completed(Integer bytesWritten, ByteBuffer buf) {
                 if (buf.hasRemaining()) {
-                    clientChannel.write(buf, buf, this); // Continue writing remaining data.
-                } else {
-                    closeSocket(clientChannel); // Close only after full transmission.
+                    clientChannel.write(buf, buf, this);
                 }
             }
 
             @Override
             public void failed(Throwable exc, ByteBuffer buf) {
                 PrettyLogger.withEmoji("Error sending response: " + exc.getMessage(), "⚠️");
-                closeSocket(clientChannel);
+                closeSocket(clientChannel); // Close socket on response send failure as well.
             }
         });
     }
@@ -346,9 +392,9 @@ public class FlashServer {
     }
 
     private void validateHandlerResources(RequestHandler handler) {
-        handler.getExpectedRequestParameters().values().parallelStream().forEach(ExpectedRequestParameter::getFieldValue);
-        handler.getExpectedBodyFields().values().parallelStream().forEach(ExpectedBodyField::getFieldValue);
-        handler.getExpectedBodyFiles().values().parallelStream().forEach(ExpectedBodyFile::getInputStream);
+        handler.getExpectedRequestParameters().values().parallelStream().forEach(ExpectedRequestParameter::getFieldValue); // Use sequential stream
+        handler.getExpectedBodyFields().values().parallelStream().forEach(ExpectedBodyField::getFieldValue); // Use sequential stream
+        handler.getExpectedBodyFiles().values().parallelStream().forEach(ExpectedBodyFile::getInputStream); // Use sequential stream
     }
 
     private Object convertToResponseBody(Object responseBody) {
@@ -463,19 +509,26 @@ public class FlashServer {
      * A simple pool for reusing direct ByteBuffers.
      */
     private static class BufferPool {
-        private static final int BUFFER_SIZE = 10240;
-        private static final ConcurrentLinkedQueue<ByteBuffer> pool = new ConcurrentLinkedQueue<>();
+        private final int bufferSize; // Instance variable for buffer size
+        private final ConcurrentLinkedQueue<ByteBuffer> pool = new ConcurrentLinkedQueue<>();
 
-        public static ByteBuffer acquire() {
+        public BufferPool(int initialSize, int bufferSize) {
+            this.bufferSize = bufferSize; // Initialize bufferSize
+            for (int i = 0; i < initialSize; i++) {
+                pool.offer(ByteBuffer.allocateDirect(this.bufferSize)); // Use instance bufferSize
+            }
+        }
+
+        public ByteBuffer acquire() {
             ByteBuffer buffer = pool.poll();
             if (buffer == null) {
-                return ByteBuffer.allocateDirect(BUFFER_SIZE);
+                return ByteBuffer.allocateDirect(this.bufferSize); // Allocate if pool is empty, use instance bufferSize
             }
             buffer.clear();
             return buffer;
         }
 
-        public static void release(ByteBuffer buffer) {
+        public void release(ByteBuffer buffer) {
             pool.offer(buffer);
         }
     }
