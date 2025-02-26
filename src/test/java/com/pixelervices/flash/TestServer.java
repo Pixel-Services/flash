@@ -7,19 +7,27 @@ import com.pixelervices.flash.handlers.TestHandler;
 import com.pixelervices.flash.utils.FileUploader;
 import com.pixelervices.flash.utils.RequestPerformer;
 import com.pixelservices.flash.components.FlashServer;
+import com.pixelservices.flash.models.WebSocketHandler;
+import com.pixelservices.flash.models.WebSocketSession;
 import com.pixelservices.flash.swagger.OpenAPIConfiguration;
 import com.pixelservices.flash.swagger.OpenAPIUITemplate;
 import com.pixelservices.logger.Logger;
 import com.pixelservices.logger.LoggerFactory;
+import org.java_websocket.client.WebSocketClient;
+import org.java_websocket.handshake.ServerHandshake;
 import org.junit.Test;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.List;
-import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.*;
 
@@ -27,7 +35,7 @@ public class TestServer {
     private final Logger logger = LoggerFactory.getLogger("TestLogger");
 
     @Test
-    public void createTestServer(){
+    public void createTestServer() {
         FlashServer server = new FlashServer(8080);
 
         server.route("/test")
@@ -43,8 +51,31 @@ public class TestServer {
                 List.of("http://localhost:" + 8080)
         ), OpenAPIUITemplate.SWAGGER_UI);
 
-
         server.get("/test/param/:name", (req, res) -> "Hello, " + req.getRouteParam("name"));
+
+        server.ws("/ws", new WebSocketHandler() {
+            @Override
+            public void onOpen(WebSocketSession session) {
+                System.out.println("WebSocket connection opened");
+            }
+
+            @Override
+            public void onClose(WebSocketSession session, int statusCode, String reason) {
+                System.out.println("WebSocket connection closed");
+            }
+
+            @Override
+            public void onMessage(WebSocketSession session, String message) {
+                System.out.println("Received message: " + message);
+                String reversedMessage = new StringBuilder(message).reverse().toString();
+                session.sendMessage(reversedMessage);
+            }
+
+            @Override
+            public void onError(WebSocketSession session, Throwable error) {
+                System.out.println("WebSocket error: " + error.getMessage());
+            }
+        });
 
         Thread serverThread = new Thread(() -> {
             try {
@@ -59,7 +90,7 @@ public class TestServer {
         CountDownLatch latch = new CountDownLatch(1);
 
         try {
-            if (!latch.await(2, java.util.concurrent.TimeUnit.SECONDS)) {
+            if (!latch.await(2, TimeUnit.SECONDS)) {
                 assertTrue(true);
             }
         } catch (InterruptedException e) {
@@ -68,13 +99,13 @@ public class TestServer {
     }
 
     @Test
-    public void testDefaultHandlers(){
+    public void testDefaultHandlers() {
         testEndpoint("/param/John", "Hello, John");
         testEndpoint("/helloworld", "Hello, World!");
     }
 
     @Test
-    public void testFileHandler(){
+    public void testFileHandler() {
         try {
             File testFile = createInMemoryFile("This is a test file");
             String response = FileUploader.uploadFile("http://localhost:8080/test/file", testFile);
@@ -86,15 +117,48 @@ public class TestServer {
     }
 
     @Test
-    public void testReqParamHandler(){
+    public void testReqParamHandler() {
         testEndpoint("/reqparam?testParam=John", "Test param: John");
     }
 
     @Test
-    public void testReqBodyTestHandler(){
+    public void testReqBodyTestHandler() {
         String response = RequestPerformer.performPostRequestBodyField("http://localhost:8080/test/reqbody", "testParam", "John");
         logger.info(response);
         assertEquals("Test body: John", response);
+    }
+
+    @Test
+    public void testWebSocket() throws URISyntaxException, InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        WebSocketClient client = new WebSocketClient(new URI("ws://localhost:8080/ws")) {
+            @Override
+            public void onOpen(ServerHandshake handshakedata) {
+                System.out.println("WebSocket Client connected");
+                send("Hello");
+            }
+
+            @Override
+            public void onMessage(String message) {
+                System.out.println("Received message from server: " + message);
+                assertEquals("olleH", message);
+                latch.countDown();
+            }
+
+            @Override
+            public void onClose(int code, String reason, boolean remote) {
+                System.out.println("WebSocket Client closed");
+            }
+
+            @Override
+            public void onError(Exception ex) {
+                System.out.println("WebSocket Client error: " + ex.getMessage());
+            }
+        };
+
+        client.connect();
+        latch.await(5, TimeUnit.SECONDS);
+        client.close();
     }
 
     private File createInMemoryFile(String content) {
