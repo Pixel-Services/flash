@@ -21,10 +21,18 @@ public class WebSocketSession {
         this.id = "";
     }
 
+    /**
+     * Get the channel for the WebSocket session
+     * @return The channel
+     */
     public AsynchronousSocketChannel getChannel() {
         return channel;
     }
 
+    /**
+     * Get the request info instance (path, headers, method)
+     * @return The request info
+     */
     public RequestInfo getRequestInfo() {
         return requestInfo;
     }
@@ -41,6 +49,10 @@ public class WebSocketSession {
         this.id = id;
     }
 
+    /**
+     * Get the buffer for the WebSocket session
+     * @return The buffer
+     */
     public ByteBuffer getBuffer() {
         return buffer;
     }
@@ -88,7 +100,7 @@ public class WebSocketSession {
         });
     }
 
-    public void close(int statusCode, String reason) {
+    public void close() {
         try {
             channel.close();
         } catch (Exception e) {
