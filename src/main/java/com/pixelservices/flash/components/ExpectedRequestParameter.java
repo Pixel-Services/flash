@@ -46,8 +46,12 @@ public class ExpectedRequestParameter {
      */
     public Object getFieldValue() {
         if (requestHandler.getRequest() == null) {
-            throwHDIChainError();
+            throw new IllegalStateException(
+                    "Request is not initialized yet. If you are calling expectedRequestParameter() within an HDI, " +
+                    "please ensure that the ExpectedRequestParameter target field is not static, and is initialized properly within the constructor. "
+            );
         }
+
 
         // Retrieve all query parameters
         Map<String, List<String>> queryParams = requestHandler.getRequest().queryParams();
@@ -59,28 +63,6 @@ public class ExpectedRequestParameter {
         }
 
         return queryParams.get(parameterName).getFirst(); // Retrieve the first value safely
-    }
-
-    /**
-     * Detects if the request handler is part of an HDI chain and throws a detailed error message.
-     */
-    private void throwHDIChainError() {
-        List<Class<? extends RequestHandler>> hdiChain = HDIUtils.detectHDIChain(requestHandler.getClass());
-
-        StringBuilder errorMsg = new StringBuilder("Request is not initialized yet.");
-        errorMsg.append("\nDetected that ExpectedRequestParameter was called inside ").append(requestHandler.getClass().getSimpleName());
-
-        if (!hdiChain.isEmpty()) {
-            errorMsg.append(", which is part of an HDI chain: ");
-            for (Class<? extends RequestHandler> hdi : hdiChain) {
-                errorMsg.append(hdi.getSimpleName()).append(" -> ");
-            }
-            errorMsg.setLength(errorMsg.length() - 4); // Remove the last " -> "
-        }
-
-        errorMsg.append(".\nMake sure to call expectedRequestParameter() inside the handle method and not the constructor.");
-
-        throw new IllegalStateException(errorMsg.toString());
     }
 
     /**
