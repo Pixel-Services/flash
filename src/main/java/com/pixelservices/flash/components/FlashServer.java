@@ -316,7 +316,6 @@ public class FlashServer {
                             RequestInfo reqInfo = parseRequest(fullRequestData);
 
                             if (isWebSocketRequest(reqInfo)) {
-                                PrettyLogger.withEmoji("WebSocket request received", "🔌");
                                 clientAttachment.isWebSocket = true;
                                 handleWebSocketHandshake(clientAttachment.channel, reqInfo, fullRequestData);
                             } else {
@@ -533,7 +532,7 @@ public class FlashServer {
 
         if (rsv1 != 0 || rsv2 != 0 || rsv3 != 0) {
             PrettyLogger.withEmoji("Invalid WebSocket frame: RSV1, RSV2, and RSV3 must be clear", "❌");
-            session.close();
+            session.close(1002, "Protocol error");
             return;
         }
 
@@ -554,7 +553,7 @@ public class FlashServer {
 
         if (actualPayloadLength > WEBSOCKET_BUFFER_SIZE - 14) {
             PrettyLogger.withEmoji("WebSocket frame too large: " + actualPayloadLength + " bytes", "⚠️");
-            session.close();
+            session.close(1009, "Message too big");
             return;
         }
 
@@ -603,7 +602,7 @@ public class FlashServer {
                     }
                 }
                 handler.onClose(session, statusCode, reason);
-                session.close();
+                session.close(statusCode, "Acknowledged");
                 removeSession(session);
                 break;
             case 0x9:
@@ -612,7 +611,7 @@ public class FlashServer {
             case 0xA:
                 break;
             default:
-                session.close();
+                session.close(1002, "Protocol error");
                 removeSession(session);
                 break;
         }

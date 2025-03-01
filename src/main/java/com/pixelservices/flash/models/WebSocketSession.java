@@ -2,6 +2,7 @@ package com.pixelservices.flash.models;
 
 import com.pixelservices.flash.utils.PrettyLogger;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
@@ -100,11 +101,56 @@ public class WebSocketSession {
         });
     }
 
-    public void close() {
-        try {
-            channel.close();
-        } catch (Exception e) {
-            PrettyLogger.error("Failed to close WebSocket session: " + e.getMessage());
+    /**
+     * Closes the WebSocket connection with the specified status code and reason
+     *
+     * @param statusCode WebSocket close status code (1000 = normal, 1001 = going away, etc.)
+     * @param reason Reason for closing the connection (optional)
+     */
+    public void close(int statusCode, String reason) {
+        byte[] reasonBytes = reason != null ? reason.getBytes(StandardCharsets.UTF_8) : new byte[0];
+
+        // Calculate frame size: 2 bytes for status code + reason text
+        int frameSize = 2 + reasonBytes.length;
+
+        // Create the close frame
+        ByteBuffer closeFrame = ByteBuffer.allocate(frameSize + 2); // +2 for frame header
+        closeFrame.put((byte) 0x88); // FIN + close opcode (0x8)
+        closeFrame.put((byte) frameSize); // Payload length
+
+        // Put the status code (2 bytes, network byte order)
+        closeFrame.putShort((short) statusCode);
+
+        // Put the reason if provided
+        if (reasonBytes.length > 0) {
+            closeFrame.put(reasonBytes);
         }
+
+        closeFrame.flip();
+
+        // Send the close frame
+        channel.write(closeFrame, null, new CompletionHandler<Integer, Void>() {
+            @Override
+            public void completed(Integer result, Void attachment) {
+                try {
+                    // Wait a moment for the client to respond before closing
+                    Thread.sleep(100);
+                    channel.close();
+                    PrettyLogger.log("WebSocket session closed with status: " + statusCode);
+                } catch (InterruptedException | IOException e) {
+                    PrettyLogger.error("Error while closing WebSocket session: " + e.getMessage());
+                }
+            }
+
+            @Override
+            public void failed(Throwable exc, Void attachment) {
+                PrettyLogger.error("Failed to send WebSocket close frame: " + exc.getMessage());
+                try {
+                    channel.close();
+                } catch (IOException e) {
+                    PrettyLogger.error("Failed to close WebSocket channel: " + e.getMessage());
+                }
+            }
+        });
     }
 }
