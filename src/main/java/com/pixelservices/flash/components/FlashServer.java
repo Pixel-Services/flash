@@ -324,7 +324,6 @@ public class FlashServer {
                             }
                         } catch (Exception e) {
                             PrettyLogger.withEmoji("Error handling request: " + e.getMessage(), "❌");
-                            e.printStackTrace();
                             new RequestExceptionHandler(clientAttachment.channel, e).handle();
                         } finally {
                             if (!clientAttachment.isWebSocket) {
@@ -442,7 +441,6 @@ public class FlashServer {
                             startWebSocketFrameReader(session, handler);
                         } catch (Exception e) {
                             PrettyLogger.withEmoji("Error in WebSocket open handler: " + e.getMessage(), "❌");
-                            e.printStackTrace();
                             handler.onError(session, e);
                             removeSession(session);
                         }
@@ -457,7 +455,6 @@ public class FlashServer {
             });
         } catch (Exception e) {
             PrettyLogger.withEmoji("Error during WebSocket handshake: " + e.getMessage(), "❌");
-            e.printStackTrace();
             closeSocket(clientChannel);
         }
     }
@@ -496,7 +493,6 @@ public class FlashServer {
                         readWebSocketFrame(session, handler);
                     } catch (Exception e) {
                         PrettyLogger.withEmoji("Error processing WebSocket frame: " + e.getMessage(), "❌");
-                        e.printStackTrace();
                         handler.onError(session, e);
                         removeSession(session);
                     }
@@ -537,7 +533,7 @@ public class FlashServer {
 
         if (rsv1 != 0 || rsv2 != 0 || rsv3 != 0) {
             PrettyLogger.withEmoji("Invalid WebSocket frame: RSV1, RSV2, and RSV3 must be clear", "❌");
-            session.close(1002, "Protocol error");
+            session.close();
             return;
         }
 
@@ -558,7 +554,7 @@ public class FlashServer {
 
         if (actualPayloadLength > WEBSOCKET_BUFFER_SIZE - 14) {
             PrettyLogger.withEmoji("WebSocket frame too large: " + actualPayloadLength + " bytes", "⚠️");
-            session.close(1009, "Message too big");
+            session.close();
             return;
         }
 
@@ -607,7 +603,7 @@ public class FlashServer {
                     }
                 }
                 handler.onClose(session, statusCode, reason);
-                session.close(statusCode, "Acknowledged");
+                session.close();
                 removeSession(session);
                 break;
             case 0x9:
@@ -616,7 +612,7 @@ public class FlashServer {
             case 0xA:
                 break;
             default:
-                session.close(1002, "Protocol error");
+                session.close();
                 removeSession(session);
                 break;
         }
