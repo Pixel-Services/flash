@@ -106,5 +106,32 @@ public class FileServerUtility {
     public interface FileWatcherCallback {
         void onEvent(WatchEvent<?> event, Path rootDir);
     }
+
+    public static String getContentType(String fileName) {
+        if (fileName.endsWith(".html")) return "text/html";
+        if (fileName.endsWith(".js")) return "application/javascript";
+        if (fileName.endsWith(".css")) return "text/css";
+        if (fileName.endsWith(".png")) return "image/png";
+        if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) return "image/jpeg";
+        if (fileName.endsWith(".svg")) return "image/svg+xml";
+        if (fileName.endsWith(".gif")) return "image/gif";
+        if (fileName.endsWith(".json")) return "application/json";
+        if (fileName.endsWith(".woff")) return "font/woff";
+        if (fileName.endsWith(".woff2")) return "font/woff2";
+        if (fileName.endsWith(".ttf")) return "font/ttf";
+        if (fileName.endsWith(".otf")) return "font/otf";
+        if (fileName.endsWith(".eot")) return "font/eot";
+        if (fileName.endsWith(".ico")) return "image/x-icon";
+        if (fileName.endsWith(".pdf")) return "application/pdf";
+        if (fileName.endsWith(".zip")) return "application/zip";
+        if (fileName.endsWith(".gz")) return "application/gzip";
+        if (fileName.endsWith(".mp4")) return "video/mp4";
+        if (fileName.endsWith(".webm")) return "video/webm";
+        if (fileName.endsWith(".ogg")) return "video/ogg";
+        if (fileName.endsWith(".mov")) return "video/quicktime";
+        if (fileName.endsWith(".mp3")) return "audio/mpeg";
+        if (fileName.endsWith(".wav")) return "audio/wav";
+        return "application/octet-stream";
+    }
 }
 

@@ -13,6 +13,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.jar.JarEntry;
@@ -169,12 +170,40 @@ public class DynamicFileServer {
                 res.status(404).body("File not found");
                 return res.getBody();
             }
+
             String contentType;
             try {
                 contentType = Files.probeContentType(filePath);
             } catch (IOException e) {
                 contentType = "application/octet-stream";
             }
+
+            String rangeHeader = req.header("Range");
+            if (rangeHeader != null) {
+                try {
+                    String[] ranges = rangeHeader.replace("bytes=", "").split("-");
+                    long start = Long.parseLong(ranges[0]);
+                    long end = (ranges.length > 1) ? Long.parseLong(ranges[1]) : fileContent.length - 1;
+
+                    if (start > fileContent.length) {
+                        res.status(416).body("Requested Range Not Satisfiable");
+                        return res.getBody();
+                    }
+
+                    byte[] rangeContent = Arrays.copyOfRange(fileContent, (int) start, (int) (end + 1));
+
+                    res.status(206)
+                            .header("Content-Range", "bytes " + start + "-" + end + "/" + fileContent.length)
+                            .type(contentType)
+                            .body(rangeContent);
+                    return res.getBody();
+                } catch (Exception e) {
+                    res.status(400).body("Invalid Range Request");
+                    return res.getBody();
+                }
+            }
+
+            // If no range is requested, return the whole file
             res.status(200).type(contentType).body(fileContent);
             return res.getBody();
         }, HandlerType.STATIC);
@@ -230,25 +259,37 @@ public class DynamicFileServer {
                 res.status(404).body("File not found");
                 return res.getBody();
             }
-            String contentType = getContentType(resourcePath);
+
+            String contentType = FileServerUtility.getContentType(resourcePath);
+
+            String rangeHeader = req.header("Range");
+            if (rangeHeader != null) {
+                try {
+                    String[] ranges = rangeHeader.replace("bytes=", "").split("-");
+                    long start = Long.parseLong(ranges[0]);
+                    long end = (ranges.length > 1) ? Long.parseLong(ranges[1]) : fileContent.length - 1;
+
+                    if (start > fileContent.length) {
+                        res.status(416).body("Requested Range Not Satisfiable");
+                        return res.getBody();
+                    }
+
+                    byte[] rangeContent = Arrays.copyOfRange(fileContent, (int) start, (int) (end + 1));
+
+                    res.status(206)
+                            .header("Content-Range", "bytes " + start + "-" + end + "/" + fileContent.length)
+                            .type(contentType)
+                            .body(rangeContent);
+                    return res.getBody();
+                } catch (Exception e) {
+                    res.status(400).body("Invalid Range Request");
+                    return res.getBody();
+                }
+            }
+
             res.status(200).type(contentType).body(fileContent);
             return res.getBody();
         }, HandlerType.STATIC);
-    }
-
-    /**
-     * Returns a simple content type mapping based on file extension.
-     *
-     * @param fileName the name of the file or resource
-     * @return a MIME type string
-     */
-    private String getContentType(String fileName) {
-        if (fileName.endsWith(".html")) return "text/html";
-        if (fileName.endsWith(".js")) return "application/javascript";
-        if (fileName.endsWith(".css")) return "text/css";
-        if (fileName.endsWith(".png")) return "image/png";
-        if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) return "image/jpeg";
-        return "application/octet-stream";
     }
 
     /**
