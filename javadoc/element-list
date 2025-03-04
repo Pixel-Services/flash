@@ -1,5 +1,8 @@
 com.pixelservices.flash.components
 com.pixelservices.flash.components.fileserver
+com.pixelservices.flash.components.routing
+com.pixelservices.flash.components.routing.models
+com.pixelservices.flash.components.routing.trie
 com.pixelservices.flash.exceptions
 com.pixelservices.flash.lifecycle
 com.pixelservices.flash.models
