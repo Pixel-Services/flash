@@ -1,9 +1,9 @@
 package com.pixelervices.flash.handlers;
 
-import com.pixelservices.flash.components.ExpectedBodyFile;
-import com.pixelservices.flash.components.RequestHandler;
-import com.pixelservices.flash.lifecycle.Request;
-import com.pixelservices.flash.lifecycle.Response;
+import com.pixelservices.flash.components.expected.ExpectedBodyFile;
+import com.pixelservices.flash.components.http.RequestHandler;
+import com.pixelservices.flash.components.http.lifecycle.Request;
+import com.pixelservices.flash.components.http.lifecycle.Response;
 import com.pixelservices.flash.models.HttpMethod;
 import com.pixelservices.flash.models.RouteInfo;
 

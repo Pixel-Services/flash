@@ -1,6 +1,6 @@
 package com.pixelservices.flash.utils;
 
-import com.pixelservices.flash.components.RequestHandler;
+import com.pixelservices.flash.components.http.RequestHandler;
 
 import java.util.ArrayList;
 import java.util.List;

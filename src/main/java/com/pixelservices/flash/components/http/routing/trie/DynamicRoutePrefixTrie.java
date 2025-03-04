@@ -1,7 +1,7 @@
-package com.pixelservices.flash.components.routing.trie;
+package com.pixelservices.flash.components.http.routing.trie;
 
-import com.pixelservices.flash.components.routing.models.RouteEntry;
-import com.pixelservices.flash.components.routing.models.RouteMatch;
+import com.pixelservices.flash.components.http.routing.models.RouteEntry;
+import com.pixelservices.flash.components.http.routing.models.RouteMatch;
 import com.pixelservices.flash.models.HttpMethod;
 
 import java.util.ArrayList;

@@ -1,8 +1,8 @@
 package com.pixelservices.flash.swagger;
 
 import com.pixelservices.flash.components.FlashServer;
-import com.pixelservices.flash.components.ExpectedRequestParameter;
-import com.pixelservices.flash.components.RequestHandler;
+import com.pixelservices.flash.components.expected.ExpectedRequestParameter;
+import com.pixelservices.flash.components.http.RequestHandler;
 import com.pixelservices.flash.models.HandlerSpecification;
 import com.pixelservices.flash.models.HandlerType;
 import io.swagger.v3.oas.models.OpenAPI;

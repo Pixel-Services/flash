@@ -1,7 +1,10 @@
-package com.pixelservices.flash.components;
+package com.pixelservices.flash.components.http;
 
-import com.pixelservices.flash.lifecycle.Request;
-import com.pixelservices.flash.lifecycle.Response;
+import com.pixelservices.flash.components.expected.ExpectedBodyField;
+import com.pixelservices.flash.components.expected.ExpectedBodyFile;
+import com.pixelservices.flash.components.expected.ExpectedRequestParameter;
+import com.pixelservices.flash.components.http.lifecycle.Request;
+import com.pixelservices.flash.components.http.lifecycle.Response;
 import com.pixelservices.flash.models.HandlerType;
 import com.pixelservices.flash.models.HandlerSpecification;
 import com.pixelservices.flash.models.RouteInfo;
@@ -216,7 +219,7 @@ public abstract class RequestHandler {
      * Sets the handler specification
      * @param specification The handler specification
      */
-    void setSpecification(HandlerSpecification specification) {
+    public void setSpecification(HandlerSpecification specification) {
         this.specification = specification;
     }
 
@@ -232,7 +235,7 @@ public abstract class RequestHandler {
      * Sets the handler type (package-private)
      * @param handlerType The handler type
      */
-    void setHandlerType(HandlerType handlerType) {
+    public void setHandlerType(HandlerType handlerType) {
         this.handlerType = handlerType;
     }
 
