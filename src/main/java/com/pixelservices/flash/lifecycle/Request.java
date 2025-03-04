@@ -1,11 +1,8 @@
 package com.pixelservices.flash.lifecycle;
 
-import com.pixelservices.flash.components.RoutePattern;
 import com.pixelservices.flash.models.HttpMethod;
 
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**

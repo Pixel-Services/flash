@@ -1,4 +1,4 @@
-package com.pixelservices.flash.components;
+package com.pixelservices.flash.components.routing.models;
 
 import java.util.ArrayList;
 import java.util.HashMap;

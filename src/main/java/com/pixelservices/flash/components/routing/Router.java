@@ -1,5 +1,7 @@
-package com.pixelservices.flash.components;
+package com.pixelservices.flash.components.routing;
 
+import com.pixelservices.flash.components.FlashServer;
+import com.pixelservices.flash.components.RequestHandler;
 import com.pixelservices.flash.lifecycle.Request;
 import com.pixelservices.flash.lifecycle.Response;
 import com.pixelservices.flash.models.HttpMethod;
@@ -7,9 +9,6 @@ import com.pixelservices.flash.models.RouteInfo;
 
 import java.lang.reflect.Constructor;
 
-/**
- * Router provides a mechanism to register request handlers to specific routes in a FlashServer instance.
- */
 public class Router {
     private final String basePath;
     private final FlashServer server;
@@ -38,16 +37,12 @@ public class Router {
         String fullPath = basePath + endpoint;
 
         RequestHandler handlerInstance = createHandlerInstance(handlerClass);
-        server.registerRoute(method, fullPath, handlerInstance); // Register in FlashServer
+        server.registerRoute(method, fullPath, handlerInstance);
         return this;
     }
 
     /**
      * Creates an instance of the given request handler class.
-     *
-     * @param handlerClass the class of the request handler
-     * @return an instance of the request handler
-     * @throws RuntimeException if instantiation fails
      */
     private RequestHandler createHandlerInstance(Class<? extends RequestHandler> handlerClass) {
         try {
@@ -60,10 +55,6 @@ public class Router {
 
     /**
      * Retrieves the endpoint for the given handler class by inspecting its @RouteInfo annotation.
-     *
-     * @param handlerClass the class of the request handler
-     * @return the endpoint specified in the @RouteInfo annotation
-     * @throws IllegalArgumentException if the @RouteInfo annotation is missing
      */
     private String getEndpoint(Class<? extends RequestHandler> handlerClass) {
         if (handlerClass.isAnnotationPresent(RouteInfo.class)) {
@@ -74,10 +65,6 @@ public class Router {
 
     /**
      * Retrieves the HTTP method for the given handler class by inspecting its @RouteInfo annotation.
-     *
-     * @param handlerClass the class of the request handler
-     * @return the HTTP method specified in the @RouteInfo annotation
-     * @throws IllegalArgumentException if the @RouteInfo annotation is missing
      */
     private HttpMethod getMethod(Class<? extends RequestHandler> handlerClass) {
         if (handlerClass.isAnnotationPresent(RouteInfo.class)) {
@@ -86,5 +73,3 @@ public class Router {
         throw new IllegalArgumentException("No @RouteInfo annotation found on " + handlerClass.getName());
     }
 }
-
-
