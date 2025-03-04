@@ -41,15 +41,14 @@ public class RequestExceptionHandler {
      * @param message    the error message to include in the response
      */
     private void sendErrorResponse(int statusCode, String message) {
-        PrettyLogger.warn("Sending error response (" + statusCode + ") &#FF746C'" + message + "'");
         Response errorResponse = new Response();
         errorResponse.status(statusCode).body(message).type("text/plain");
         try {
             ByteBuffer responseBuffer = errorResponse.getSerialized();
             clientChannel.write(responseBuffer).get();
-        } catch (Exception ex) {
-            PrettyLogger.withEmoji("Error sending error response: " + ex.getMessage(), "⚠️");
-        } finally {
+        } catch (Exception ignored) {}
+
+        finally {
             closeSocket();
         }
     }

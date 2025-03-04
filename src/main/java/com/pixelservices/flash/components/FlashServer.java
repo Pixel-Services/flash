@@ -4,6 +4,10 @@ import com.pixelservices.flash.components.fileserver.DynamicFileServer;
 import com.pixelservices.flash.components.fileserver.DynamicFileServerConfiguration;
 import com.pixelservices.flash.components.fileserver.StaticFileServer;
 import com.pixelservices.flash.components.fileserver.StaticFileServerConfiguration;
+import com.pixelservices.flash.components.routing.models.RouteEntry;
+import com.pixelservices.flash.components.routing.models.RouteMatch;
+import com.pixelservices.flash.components.routing.RouteRegistry;
+import com.pixelservices.flash.components.routing.Router;
 import com.pixelservices.flash.exceptions.RequestExceptionHandler;
 import com.pixelservices.flash.exceptions.ServerStartupException;
 import com.pixelservices.flash.exceptions.UnmatchedHandlerException;
@@ -19,111 +23,91 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
+import java.nio.charset.CharsetDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.Base64;
 
 /**
- * FlashServer is a lightweight and asynchronous HTTP server optimized for concurrency.
+ * Flash is a highly optimized, asynchronous and multithreaded web server.
  */
 public class FlashServer {
-    // Compatibility maps (if needed elsewhere)
-    private final ConcurrentHashMap<String, RequestHandler> routeHandlers;
-    private final ConcurrentHashMap<String, HandlerType> handlerTypes;
+    private static final String WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
-    // Enhanced middleware system with path-specific middleware chains
+    // For routes registered via other mechanisms (like simple handlers)
+    private final ConcurrentHashMap<String, RequestHandler> routeHandlers = new ConcurrentHashMap<>();
+
+    // ------------------ Middleware ------------------ //
     private final List<MiddlewareEntry> globalMiddlewares = new CopyOnWriteArrayList<>();
     private final Map<String, List<MiddlewareEntry>> pathMiddlewares = new ConcurrentHashMap<>();
 
-    // Precompiled route collections for fast lookup.
-    private final Map<String, RouteEntry> literalRoutes = new ConcurrentHashMap<>();
-    private final List<RouteEntry> parameterizedRoutes = new CopyOnWriteArrayList<>();
-    private final List<RouteEntry> dynamicRoutes = new CopyOnWriteArrayList<>();
-
+    // ------------------ Networking & Thread Pools ------------------ //
     private final int port;
     private AsynchronousServerSocketChannel serverSocketChannel;
     private final FlashConfiguration config;
+    // (Static and dynamic file servers omitted for brevity; assume they use similar off-heap optimizations)
     private final StaticFileServer staticFileServer;
     private final DynamicFileServer dynamicFileServer;
 
+    // WebSocket handlers and active sessions (WebSocket frame code not shown)
     private final Map<String, WebSocketHandler> webSocketHandlers = new ConcurrentHashMap<>();
     private final Map<String, WebSocketSession> activeSessions = new ConcurrentHashMap<>();
 
-    private static final Pattern PATH_ONLY_PATTERN = Pattern.compile("^[^?]+");
-    private static final String WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-
-    // A virtual thread executor for handling client connections concurrently.
+    // Virtual thread executor for client connections.
     private static final ExecutorService VIRTUAL_THREAD_EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
 
-    // Thread pool for I/O operations that might block
-    private static final int CPU_CORES = Runtime.getRuntime().availableProcessors();
-    private static final ExecutorService IO_THREAD_POOL =
-            new ThreadPoolExecutor(
-                    CPU_CORES * 2,
-                    CPU_CORES * 4,
-                    60L, TimeUnit.SECONDS,
-                    new LinkedBlockingQueue<>(10000),
-                    new ThreadFactory() {
-                        private final AtomicInteger counter = new AtomicInteger(0);
-                        @Override
-                        public Thread newThread(Runnable r) {
-                            Thread t = new Thread(r, "flash-io-thread-" + counter.incrementAndGet());
-                            t.setDaemon(true);
-                            return t;
-                        }
-                    },
-                    new ThreadPoolExecutor.CallerRunsPolicy() // Backpressure handling
-            );
+    // ------------------ Off-Heap Buffer Management ------------------ //
+    // OffHeapBufferPool uses direct ByteBuffers (off-heap memory)
+    private static final int BUFFER_POOL_SIZE = 4096;   // Pool size for request buffers
+    private static final int BUFFER_SIZE = 16384;         // 16KB per buffer for requests
+    private static final OffHeapBufferPool REQUEST_BUFFER_POOL = new OffHeapBufferPool(BUFFER_POOL_SIZE, BUFFER_SIZE);
 
-    // Buffer Pool Configuration
-    private static final int BUFFER_POOL_SIZE = 4096; // Increased pool size for high concurrency
-    private static final int BUFFER_SIZE = 16384; // Increased buffer size to 16KB for larger requests
-    private static final BufferPool REQUEST_BUFFER_POOL = new BufferPool(BUFFER_POOL_SIZE, BUFFER_SIZE);
+    // For WebSocket frames (64KB per buffer)
+    private static final int WEBSOCKET_BUFFER_SIZE = 65536;
+    private static final OffHeapBufferPool WEBSOCKET_BUFFER_POOL = new OffHeapBufferPool(1024, WEBSOCKET_BUFFER_SIZE);
 
-    // Buffer for WebSocket frames
-    private static final int WEBSOCKET_BUFFER_SIZE = 65536; // 64KB for WebSocket frames
-    private static final BufferPool WEBSOCKET_BUFFER_POOL = new BufferPool(1024, WEBSOCKET_BUFFER_SIZE);
+    // ------------------ Thread-Local Decoder ------------------ //
+    // Reuse a thread-local CharsetDecoder to minimize allocation overhead.
+    private static final ThreadLocal<CharsetDecoder> UTF8_DECODER = ThreadLocal.withInitial(StandardCharsets.UTF_8::newDecoder);
 
+    private final RouteRegistry routeRegistry = new RouteRegistry();
+
+    // ------------------ Constructors ------------------ //
     public FlashServer(int port, FlashConfiguration config) {
-        this.routeHandlers = new ConcurrentHashMap<>();
-        this.handlerTypes = new ConcurrentHashMap<>();
         this.port = port;
+        this.config = config;
         this.staticFileServer = new StaticFileServer(this);
         this.dynamicFileServer = new DynamicFileServer(this);
-        this.config = config;
     }
 
     public FlashServer(int port) {
         this(port, new FlashConfiguration());
     }
 
+    // ------------------ Server Startup ------------------ //
+
     /**
      * Starts the server and binds to the specified port.
      */
     public void start() {
-        long startTime = System.currentTimeMillis();
+        final long startTime = System.currentTimeMillis();
         try {
-            serverSocketChannel = AsynchronousServerSocketChannel.open()
-                    .bind(new InetSocketAddress(port));
+            serverSocketChannel = AsynchronousServerSocketChannel.open().bind(new InetSocketAddress(port));
             acceptNextConnection();
-
-            long elapsedTime = System.currentTimeMillis() - startTime;
-            String[] flashPixelArt = {
+            final long elapsedTime = System.currentTimeMillis() - startTime;
+            final String[] flashPixelArt = {
                     "&#reset",
                     "      *      ",
                     "     **      ",
-                    "    ***       &#reset Started PEF80successfully&#reset on port &#FF746C" + port + "&#reset",
+                    "    ***       &#reset Started &#77dd77successfully&#reset on port &#FF746C" + port + "&#reset",
                     "   *******    &#reset Startup time: &#FF746C" + elapsedTime + "&#reset ms",
-                    "      ***     &#reset Serving &#FF746C" + routeHandlers.size() + "&#reset handlers",
+                    "      ***     &#reset Serving " + routeRegistry.getLiteralRouteCount() + " literal routes, " + routeRegistry.getParameterizedRouteCount() + " parameterized routes, " + routeRegistry.getDynamicRouteCount() + " dynamic routes",
                     "      **     ",
                     "      *      ",
                     "&#reset"
@@ -140,61 +124,13 @@ public class FlashServer {
     }
 
     /**
-     * Add global middleware that applies to all routes
-     */
-    public void use(Middleware middleware) {
-        globalMiddlewares.add(new MiddlewareEntry(middleware, null));
-        PrettyLogger.withEmoji("Global middleware registered", "🔄");
-    }
-
-    /**
-     * Add middleware with a path filter
-     */
-    public void use(String pathPrefix, Middleware middleware) {
-        pathMiddlewares.computeIfAbsent(pathPrefix, k -> new CopyOnWriteArrayList<>())
-                .add(new MiddlewareEntry(middleware, pathPrefix));
-        PrettyLogger.withEmoji("Path middleware registered for: " + pathPrefix, "🔄");
-    }
-
-    /**
-     * Creates a CORS middleware and adds it to the global middleware stack
-     */
-    public void enableCORS(String allowedOrigins, String allowedMethods, String allowedHeaders) {
-        Middleware corsMiddleware = new Middleware() {
-            @Override
-            public boolean process(Request request, Response response) {
-                response.header("Access-Control-Allow-Origin", allowedOrigins);
-
-                if (request.method() == HttpMethod.OPTIONS) {
-                    response.header("Access-Control-Allow-Methods", allowedMethods);
-                    response.header("Access-Control-Allow-Headers", allowedHeaders);
-                    response.header("Access-Control-Max-Age", "86400");
-                    response.status(204);
-                    response.body("");
-                    return false;
-                }
-
-                return true;
-            }
-        };
-
-        use(corsMiddleware);
-
-        registerRoute(HttpMethod.OPTIONS, "/*", (req, res) -> "", HandlerType.INTERNAL);
-
-        PrettyLogger.withEmoji("CORS enabled for origin: " + allowedOrigins, "🌐");
-    }
-
-    /**
      * Accepts incoming connections asynchronously.
      */
     private void acceptNextConnection() {
         serverSocketChannel.accept(null, new CompletionHandler<>() {
             @Override
             public void completed(AsynchronousSocketChannel clientChannel, Object attachment) {
-                // Immediately accept the next connection.
                 acceptNextConnection();
-                // Submit the client handling task to our virtual thread executor.
                 VIRTUAL_THREAD_EXECUTOR.submit(() -> handleClient(clientChannel));
             }
             @Override
@@ -205,6 +141,37 @@ public class FlashServer {
         });
     }
 
+    // ------------------ Middleware Registration ------------------ //
+
+    public void use(Middleware middleware) {
+        globalMiddlewares.add(new MiddlewareEntry(middleware, null));
+        PrettyLogger.withEmoji("Global middleware registered", "🔄");
+    }
+
+    public void use(String pathPrefix, Middleware middleware) {
+        pathMiddlewares.computeIfAbsent(pathPrefix, k -> new CopyOnWriteArrayList<>())
+                .add(new MiddlewareEntry(middleware, pathPrefix));
+        PrettyLogger.withEmoji("Path middleware registered for: " + pathPrefix, "🔄");
+    }
+
+    public void enableCORS(String allowedOrigins, String allowedMethods, String allowedHeaders) {
+        Middleware corsMiddleware = (request, response) -> {
+            response.header("Access-Control-Allow-Origin", allowedOrigins);
+            if (request.method() == HttpMethod.OPTIONS) {
+                response.header("Access-Control-Allow-Methods", allowedMethods);
+                response.header("Access-Control-Allow-Headers", allowedHeaders);
+                response.header("Access-Control-Max-Age", "86400");
+                response.status(204);
+                response.body("");
+                return false;
+            }
+            return true;
+        };
+        use(corsMiddleware);
+        registerRoute(HttpMethod.OPTIONS, "/*", (req, res) -> "", HandlerType.INTERNAL);
+        PrettyLogger.withEmoji("CORS enabled for origin: " + allowedOrigins, "🌐");
+    }
+
     // ------------------ Route Registration ------------------ //
 
     public Router route(String basePath) {
@@ -213,20 +180,19 @@ public class FlashServer {
 
     /**
      * Registers a route and precompiles its matching logic.
+     * Literal routes are inserted into the trie.
      */
     private void registerRoute(HttpMethod method, String fullPath, RequestHandler handler, HandlerType handlerType) {
-        RouteEntry entry = new RouteEntry(method, fullPath, handler);
+        final RouteEntry entry = new RouteEntry(method, fullPath, handler);
         if (fullPath.endsWith("/*")) {
-            dynamicRoutes.add(entry);
+            routeRegistry.registerDynamicRoute(entry);
         } else if (entry.isParameterized()) {
-            parameterizedRoutes.add(entry);
+            routeRegistry.registerParameterizedRoute(entry);
         } else {
-            literalRoutes.put(entry.getLiteralKey(), entry);
+            routeRegistry.registerLiteralRoute(entry);
         }
-        handlerTypes.put(method.name() + ":" + fullPath, handlerType);
         handler.setHandlerType(handlerType);
-        String routingType = fullPath.endsWith("/*") ? "Dynamic"
-                : (entry.isParameterized() ? "Parameterized" : "Literal");
+        final String routingType = fullPath.endsWith("/*") ? "Dynamic" : (entry.isParameterized() ? "Parameterized" : "Literal");
         if (config.shouldLog(handlerType)) {
             PrettyLogger.withEmoji(handlerType.name() + " " + routingType + " Route registered: [" + method + "] " + fullPath, handlerType.getEmoji());
         }
@@ -246,12 +212,9 @@ public class FlashServer {
     }
 
     public void unregisterRoute(HttpMethod method, String fullPath) {
-        String routeKey = createRouteKey(method, fullPath);
+        final String routeKey = method.name() + ":" + fullPath;
         if (routeHandlers.remove(routeKey) != null) {
-            handlerTypes.remove(routeKey);
             PrettyLogger.withEmoji("Route unregistered: [" + method + "] " + fullPath, "❌");
-        } else {
-            PrettyLogger.withEmoji("Route not found: [" + method + "] " + fullPath, "⚠️");
         }
     }
 
@@ -278,22 +241,9 @@ public class FlashServer {
 
     // ------------------ Request Handling ------------------ //
 
-    private static class ClientAttachment { // Class to hold state per client connection
-        ByteBuffer buffer;
-        StringBuilder requestData;
-        AsynchronousSocketChannel channel;
-        boolean isWebSocket = false;
-
-        public ClientAttachment(ByteBuffer buffer, AsynchronousSocketChannel channel) {
-            this.buffer = buffer;
-            this.requestData = new StringBuilder();
-            this.channel = channel;
-        }
-    }
-
     private void handleClient(AsynchronousSocketChannel clientChannel) {
-        ByteBuffer buffer = REQUEST_BUFFER_POOL.acquire();
-        ClientAttachment attachment = new ClientAttachment(buffer, clientChannel);
+        final ByteBuffer buffer = REQUEST_BUFFER_POOL.acquire();
+        final ClientAttachment attachment = new ClientAttachment(buffer, clientChannel);
         startRead(attachment);
     }
 
@@ -301,53 +251,59 @@ public class FlashServer {
         attachment.buffer.clear();
         attachment.channel.read(attachment.buffer, attachment, new CompletionHandler<>() {
             @Override
-            public void completed(Integer bytesRead, ClientAttachment clientAttachment) {
+            public void completed(Integer bytesRead, ClientAttachment att) {
                 if (bytesRead > 0) {
-                    ByteBuffer buf = clientAttachment.buffer;
+                    final ByteBuffer buf = att.buffer;
                     buf.flip();
-                    String chunk = StandardCharsets.UTF_8.decode(buf).toString();
-                    clientAttachment.requestData.append(chunk);
+                    final CharsetDecoder decoder = UTF8_DECODER.get();
+                    decoder.reset();
+                    CharBuffer charBuffer;
+                    try {
+                        charBuffer = decoder.decode(buf);
+                    } catch (Exception ex) {
+                        PrettyLogger.withEmoji("Decoding error: " + ex.getMessage(), "❌");
+                        closeSocket(att.channel);
+                        REQUEST_BUFFER_POOL.release(att.buffer);
+                        return;
+                    }
+                    att.requestData.append(charBuffer);
                     buf.clear();
 
-                    String fullRequestData = clientAttachment.requestData.toString();
+                    final String fullRequestData = att.requestData.toString();
                     if (fullRequestData.contains("\r\n\r\n")) {
                         try {
-                            InetSocketAddress remoteAddress = (InetSocketAddress) clientAttachment.channel.getRemoteAddress();
-                            RequestInfo reqInfo = parseRequest(fullRequestData);
-
+                            final InetSocketAddress remoteAddress = (InetSocketAddress) att.channel.getRemoteAddress();
+                            final RequestInfo reqInfo = parseRequest(fullRequestData);
                             if (isWebSocketRequest(reqInfo)) {
-                                clientAttachment.isWebSocket = true;
-                                handleWebSocketHandshake(clientAttachment.channel, reqInfo, fullRequestData);
+                                att.isWebSocket = true;
+                                handleWebSocketHandshake(att.channel, reqInfo, fullRequestData);
                             } else {
-                                handleHttpRequest(clientAttachment, reqInfo, fullRequestData, remoteAddress);
+                                handleHttpRequest(att, reqInfo, fullRequestData, remoteAddress);
                             }
                         } catch (Exception e) {
-                            PrettyLogger.withEmoji("Error handling request: " + e.getMessage(), "❌");
-                            new RequestExceptionHandler(clientAttachment.channel, e).handle();
+                            new RequestExceptionHandler(att.channel, e).handle();
                         } finally {
-                            if (!clientAttachment.isWebSocket) {
-                                REQUEST_BUFFER_POOL.release(clientAttachment.buffer);
-                                closeSocket(clientAttachment.channel);
+                            if (!att.isWebSocket) {
+                                REQUEST_BUFFER_POOL.release(att.buffer);
+                                closeSocket(att.channel);
                             }
                         }
                         return;
                     }
-
-                    startRead(clientAttachment);
+                    startRead(att);
                 } else if (bytesRead == -1) {
-                    REQUEST_BUFFER_POOL.release(clientAttachment.buffer);
-                    closeSocket(clientAttachment.channel);
+                    REQUEST_BUFFER_POOL.release(att.buffer);
+                    closeSocket(att.channel);
                 } else {
-                    startRead(clientAttachment);
+                    startRead(att);
                 }
             }
-
             @Override
-            public void failed(Throwable exc, ClientAttachment clientAttachment) {
+            public void failed(Throwable exc, ClientAttachment att) {
                 PrettyLogger.withEmoji("Read failed: " + exc.getMessage(), "❌");
-                new RequestExceptionHandler(clientAttachment.channel, new Exception(exc)).handle();
-                REQUEST_BUFFER_POOL.release(clientAttachment.buffer);
-                closeSocket(clientAttachment.channel);
+                new RequestExceptionHandler(att.channel, new Exception(exc)).handle();
+                REQUEST_BUFFER_POOL.release(att.buffer);
+                closeSocket(att.channel);
             }
         });
     }
@@ -357,30 +313,32 @@ public class FlashServer {
                 "websocket".equalsIgnoreCase(reqInfo.getHeader("Upgrade"));
     }
 
-    private void handleHttpRequest(ClientAttachment clientAttachment, RequestInfo reqInfo, String fullRequestData, InetSocketAddress remoteAddress) throws UnmatchedHandlerException {
-        RouteMatch match = findRoute(reqInfo);
-        Map<String, String> params = match != null ? match.getParams() : Collections.emptyMap();
-        Request request = new Request(fullRequestData, remoteAddress, params);
-        Response response = new Response();
+    private void handleHttpRequest(
+            ClientAttachment att,
+            RequestInfo reqInfo,
+            String fullRequestData,
+            InetSocketAddress remoteAddress
+    ) throws UnmatchedHandlerException {
+        // attempt to match against routeRegistry
+        RouteMatch match = routeRegistry.resolveRoute(reqInfo.getMethod(), reqInfo.getPath());
 
-        boolean shouldContinueToHandler = processMiddleware(reqInfo.getPath(), request, response);
+        final Map<String, String> params = match != null ? match.params() : Collections.emptyMap();
+        final Request request = new Request(fullRequestData, remoteAddress, params);
+        final Response response = new Response();
 
-        if (!shouldContinueToHandler) {
-            sendResponse(response, clientAttachment.channel);
+        if (!processMiddleware(reqInfo.getPath(), request, response)) {
+            sendResponse(response, att.channel);
             return;
         }
-
         if (match == null) {
             throw new UnmatchedHandlerException("No handler found for " + reqInfo.getMethod() + " " + reqInfo.getPath());
         }
-
-        RequestHandler handler = match.getEntry().getHandler();
+        final RequestHandler handler = match.entry().getHandler();
         handler.setRequestResponse(request, response);
         validateHandlerResources(handler);
-
-        Object responseBody = handler.handle();
+        final Object responseBody = handler.handle();
         response.body(convertToResponseBody(responseBody));
-        sendResponse(response, clientAttachment.channel);
+        sendResponse(response, att.channel);
     }
 
     private void handleWebSocketHandshake(AsynchronousSocketChannel clientChannel, RequestInfo reqInfo, String fullRequestData) {
@@ -398,7 +356,6 @@ public class FlashServer {
         }
 
         try {
-            // Get the WebSocket key from the request headers
             String webSocketKey = reqInfo.getHeader("Sec-WebSocket-Key");
             if (webSocketKey == null) {
                 PrettyLogger.withEmoji("WebSocket handshake failed: missing Sec-WebSocket-Key header", "❌");
@@ -406,19 +363,16 @@ public class FlashServer {
                 return;
             }
 
-            // Create the WebSocket accept key
             String acceptKey = generateWebSocketAcceptKey(webSocketKey);
 
-            // Build handshake response
-            StringBuilder response = new StringBuilder();
-            response.append("HTTP/1.1 101 Switching Protocols\r\n");
-            response.append("Upgrade: websocket\r\n");
-            response.append("Connection: Upgrade\r\n");
-            response.append("Sec-WebSocket-Accept: ").append(acceptKey).append("\r\n");
-            response.append("\r\n");
+            // hanshake res
+            String response = "HTTP/1.1 101 Switching Protocols\r\n" +
+                    "Upgrade: websocket\r\n" +
+                    "Connection: Upgrade\r\n" +
+                    "Sec-WebSocket-Accept: " + acceptKey + "\r\n" +
+                    "\r\n";
 
-            // Send handshake response
-            ByteBuffer responseBuffer = ByteBuffer.wrap(response.toString().getBytes(StandardCharsets.UTF_8));
+            ByteBuffer responseBuffer = ByteBuffer.wrap(response.getBytes(StandardCharsets.UTF_8));
 
             clientChannel.write(responseBuffer, responseBuffer, new CompletionHandler<>() {
                 @Override
@@ -426,17 +380,14 @@ public class FlashServer {
                     if (buffer.hasRemaining()) {
                         clientChannel.write(buffer, buffer, this);
                     } else {
-                        // Handshake completed, create session and start handling WebSocket frames
+                        // handshake completed can now handle the frames
                         WebSocketSession session = new WebSocketSession(clientChannel, reqInfo, path);
                         String sessionId = UUID.randomUUID().toString();
                         activeSessions.put(sessionId, session);
                         session.setId(sessionId);
 
                         try {
-                            // Notify the handler that a session has been opened
                             handler.onOpen(session);
-
-                            // Start reading WebSocket frames
                             startWebSocketFrameReader(session, handler);
                         } catch (Exception e) {
                             PrettyLogger.withEmoji("Error in WebSocket open handler: " + e.getMessage(), "❌");
@@ -481,7 +432,7 @@ public class FlashServer {
         ByteBuffer buffer = session.getBuffer();
         buffer.clear();
 
-        session.getChannel().read(buffer, session, new CompletionHandler<Integer, WebSocketSession>() {
+        session.getChannel().read(buffer, session, new CompletionHandler<>() {
             @Override
             public void completed(Integer bytesRead, WebSocketSession session) {
                 if (bytesRead > 0) {
@@ -496,11 +447,11 @@ public class FlashServer {
                         removeSession(session);
                     }
                 } else if (bytesRead == -1) {
-                    // Connection closed
+                    // closed
                     handler.onClose(session, 1000, "Connection closed by client");
                     removeSession(session);
                 } else {
-                    // Continue reading
+                    // keep reading
                     readWebSocketFrame(session, handler);
                 }
             }
@@ -522,7 +473,6 @@ public class FlashServer {
         byte byte1 = buffer.get();
         byte byte2 = buffer.get();
 
-        boolean fin = (byte1 & 0x80) != 0;
         int rsv1 = (byte1 & 0x40) != 0 ? 1 : 0;
         int rsv2 = (byte1 & 0x20) != 0 ? 1 : 0;
         int rsv3 = (byte1 & 0x10) != 0 ? 1 : 0;
@@ -579,7 +529,7 @@ public class FlashServer {
         }
 
         switch (opcode) {
-            case 0x0:
+            case 0x0, 0x2, 0xA:
                 break;
             case 0x1:
                 String message = new String(payload, StandardCharsets.UTF_8);
@@ -589,8 +539,6 @@ public class FlashServer {
                     PrettyLogger.withEmoji("Error in WebSocket message handler: " + e.getMessage(), "❌");
                     handler.onError(session, e);
                 }
-                break;
-            case 0x2:
                 break;
             case 0x8:
                 int statusCode = 1000;
@@ -608,8 +556,6 @@ public class FlashServer {
             case 0x9:
                 sendPong(session, payload);
                 break;
-            case 0xA:
-                break;
             default:
                 session.close(1002, "Protocol error");
                 removeSession(session);
@@ -619,16 +565,15 @@ public class FlashServer {
 
     private void sendPong(WebSocketSession session, byte[] payload) {
         ByteBuffer pongBuffer = ByteBuffer.allocate(2 + payload.length);
-        // Create pong frame with opcode 0xA
-        pongBuffer.put((byte) 0x8A); // FIN + opcode
-        pongBuffer.put((byte) payload.length); // payload length (assuming small payload)
+        pongBuffer.put((byte) 0x8A);
+        pongBuffer.put((byte) payload.length); // payload length (as long as its not humongous lol)
         pongBuffer.put(payload);
         pongBuffer.flip();
 
         session.getChannel().write(pongBuffer, null, new CompletionHandler<Integer, Void>() {
             @Override
             public void completed(Integer result, Void attachment) {
-                // Pong sent successfully
+                // sent pong
             }
 
             @Override
@@ -649,155 +594,84 @@ public class FlashServer {
     }
 
     /**
-     * Process the middleware chain for a given request path
-     * @return true if the request should continue to the handler, false if it should stop
+     * Process the middleware chain.
      */
     private boolean processMiddleware(String path, Request request, Response response) {
-        // First process global middleware
-        for (MiddlewareEntry entry : globalMiddlewares) {
-            if (!entry.middleware.process(request, response)) {
-                return false;
-            }
+        for (final MiddlewareEntry entry : globalMiddlewares) {
+            if (!entry.middleware.process(request, response)) return false;
         }
-
-        // Then process path-specific middleware
-        for (Map.Entry<String, List<MiddlewareEntry>> pathEntry : pathMiddlewares.entrySet()) {
-            String pathPrefix = pathEntry.getKey();
-
-            // Skip middleware that doesn't match this path
-            if (!path.startsWith(pathPrefix)) {
-                continue;
-            }
-
-            for (MiddlewareEntry entry : pathEntry.getValue()) {
-                if (!entry.middleware.process(request, response)) {
-                    return false;
+        for (final Map.Entry<String, List<MiddlewareEntry>> e : pathMiddlewares.entrySet()) {
+            if (path.startsWith(e.getKey())) {
+                for (final MiddlewareEntry entry : e.getValue()) {
+                    if (!entry.middleware.process(request, response)) return false;
                 }
             }
         }
-
         return true;
     }
 
     /**
-     * Decodes the given ByteBuffer into a UTF-8 String.
-     */
-    private String decodeBuffer(ByteBuffer buffer) {
-        buffer.flip();
-        return StandardCharsets.UTF_8.decode(buffer).toString();
-    }
-
-    /**
-     * Parses the raw HTTP request to extract the method and path (query parameters removed).
+     * Minimal manual parsing of the request to extract method and path.
      */
     private RequestInfo parseRequest(String rawRequest) {
-        String[] lines = rawRequest.split("\r\n");
-        if (lines.length == 0 || lines[0].isEmpty()) {
-            throw new IllegalArgumentException("Empty request");
-        }
-        String[] parts = lines[0].split(" ");
-        HttpMethod method = HttpMethod.valueOf(parts[0]);
-        Matcher matcher = PATH_ONLY_PATTERN.matcher(parts[1]);
-        String path = matcher.find() ? matcher.group() : parts[1];
-
-        List<String> headers = new ArrayList<>(Arrays.asList(lines).subList(1, lines.length));
-
+        final int requestLineEnd = rawRequest.indexOf("\r\n");
+        if (requestLineEnd == -1) throw new IllegalArgumentException("Malformed request");
+        final String requestLine = rawRequest.substring(0, requestLineEnd);
+        final int firstSpace = requestLine.indexOf(' ');
+        final int secondSpace = requestLine.indexOf(' ', firstSpace + 1);
+        if (firstSpace == -1 || secondSpace == -1) throw new IllegalArgumentException("Malformed request line: " + requestLine);
+        final String methodStr = requestLine.substring(0, firstSpace);
+        final String rawPath = requestLine.substring(firstSpace + 1, secondSpace);
+        final int qIndex = rawPath.indexOf('?');
+        final String path = (qIndex != -1) ? rawPath.substring(0, qIndex) : rawPath;
+        final HttpMethod method = HttpMethod.valueOf(methodStr);
+        final int headersEnd = rawRequest.indexOf("\r\n\r\n");
+        final List<String> headers = (headersEnd != -1 && headersEnd > requestLineEnd)
+                ? Arrays.asList(rawRequest.substring(requestLineEnd + 2, headersEnd).split("\r\n"))
+                : Collections.emptyList();
         return new RequestInfo(method, path, headers);
     }
 
-    /**
-     * Searches for a matching route for the given request info.
-     * First checks literal routes, then uses parallel streaming to find a match in parameterized routes.
-     */
-    private RouteMatch findRoute(RequestInfo reqInfo) {
-        String literalKey = reqInfo.getMethod().name() + ":" + reqInfo.getPath();
-        RouteEntry literalEntry = literalRoutes.get(literalKey);
-        if (literalEntry != null) {
-            return new RouteMatch(literalEntry, Collections.emptyMap());
-        }
-
-        // Try sequential stream first for potential minor performance gain if parallel overhead is significant
-        Optional<RouteMatch> paramMatch = parameterizedRoutes.parallelStream()
-                .filter(e -> e.getMethod() == reqInfo.getMethod())
-                .map(e -> {
-                    Map<String, String> params = e.match(reqInfo.getPath());
-                    return params != null ? new RouteMatch(e, params) : null;
-                })
-                .filter(Objects::nonNull)
-                .findFirst();
-        if (paramMatch.isPresent()) {
-            return paramMatch.get();
-        }
-
-        Optional<RouteMatch> dynamicMatch = dynamicRoutes.parallelStream() // Use sequential stream as well initially
-                .filter(e -> e.getMethod() == reqInfo.getMethod())
-                .map(e -> {
-                    String prefix = e.getPath().substring(0, e.getPath().length() - 2);
-                    if (reqInfo.getPath().startsWith(prefix)) {
-                        Map<String, String> params = new HashMap<>();
-                        params.put("path", reqInfo.getPath().substring(prefix.length()));
-                        return new RouteMatch(e, params);
-                    }
-                    return null;
-                })
-                .filter(Objects::nonNull)
-                .findFirst();
-        return dynamicMatch.orElse(null);
-    }
-
-    // ------------------ Response and Socket Utilities ------------------ //
-
     private void sendResponse(Response response, AsynchronousSocketChannel clientChannel) {
         response.finalizeResponse();
-        ByteBuffer responseBuffer = response.getSerialized();
-
+        final ByteBuffer responseBuffer = response.getSerialized();
         clientChannel.write(responseBuffer, responseBuffer, new CompletionHandler<>() {
             @Override
             public void completed(Integer bytesWritten, ByteBuffer buf) {
-                if (buf.hasRemaining()) {
-                    clientChannel.write(buf, buf, this);
-                }
+                if (buf.hasRemaining()) clientChannel.write(buf, buf, this);
             }
-
             @Override
             public void failed(Throwable exc, ByteBuffer buf) {
                 PrettyLogger.withEmoji("Error sending response: " + exc.getMessage(), "⚠️");
-                closeSocket(clientChannel); // Close socket on response send failure as well.
+                closeSocket(clientChannel);
             }
         });
     }
 
     private void closeSocket(AsynchronousSocketChannel clientChannel) {
-        try {
-            clientChannel.close();
-        } catch (IOException e) {
-            PrettyLogger.withEmoji("Error closing socket: " + e.getMessage(), "❌");
-        }
+        try { clientChannel.close(); }
+        catch (IOException e) { PrettyLogger.withEmoji("Error closing socket: " + e.getMessage(), "❌"); }
     }
 
     private void validateHandlerResources(RequestHandler handler) {
-        handler.getExpectedRequestParameters().values().parallelStream().forEach(ExpectedRequestParameter::getFieldValue); // Use sequential stream
-        handler.getExpectedBodyFields().values().parallelStream().forEach(ExpectedBodyField::getFieldValue); // Use sequential stream
-        handler.getExpectedBodyFiles().values().parallelStream().forEach(ExpectedBodyFile::getInputStream); // Use sequential stream
+        for (ExpectedRequestParameter param : handler.getExpectedRequestParameters().values()) {
+            param.getFieldValue();
+        }
+        for (ExpectedBodyField field : handler.getExpectedBodyFields().values()) {
+            field.getFieldValue();
+        }
+        for (ExpectedBodyFile file : handler.getExpectedBodyFiles().values()) {
+            file.getInputStream();
+        }
     }
 
     private Object convertToResponseBody(Object responseBody) {
-        return switch (responseBody) {
-            case null -> "";
-            case byte[] ignored -> responseBody;
-            case String ignored -> responseBody;
-            default -> responseBody.toString();
-        };
+        if (responseBody == null) return "";
+        if (responseBody instanceof byte[] || responseBody instanceof String) return responseBody;
+        return responseBody.toString();
     }
 
-    /**
-     * Creates a route key based on the HTTP method and path.
-     */
-    private String createRouteKey(HttpMethod method, String path) {
-        return method.name() + ":" + path;
-    }
-
-    // ------------------ OpenAPI and Static Files ------------------ //
+    // ------------------ Simple Route Registrations ------------------ //
 
     public OpenAPISchemaGenerator openapi(String endpoint, OpenAPIConfiguration configuration, OpenAPIUITemplate templateHtml) {
         OpenAPISchemaGenerator config = new OpenAPISchemaGenerator(this, configuration);
@@ -821,12 +695,6 @@ public class FlashServer {
     public void serveDynamic(String endpoint, DynamicFileServerConfiguration config) {
         dynamicFileServer.serve(endpoint, config);
     }
-
-    public Map<String, RequestHandler> getRouteHandlers() {
-        return routeHandlers;
-    }
-
-    // ------------------ Simple Route Registrations ------------------ //
 
     public void ws(String endpoint, WebSocketHandler handler) {
         registerWebSocketRoute(endpoint, handler);
@@ -858,55 +726,62 @@ public class FlashServer {
     public void trace(String endpoint, SimpleHandler handler) {
         registerRoute(HttpMethod.TRACE, endpoint, handler);
     }
-    public void connect(String endpoint, SimpleHandler handler) {registerRoute(HttpMethod.CONNECT, endpoint, handler);}
-    public void options(String endpoint, SimpleHandler handler) { registerRoute(HttpMethod.OPTIONS, endpoint, handler);}
+    public void connect(String endpoint, SimpleHandler handler) {
+        registerRoute(HttpMethod.CONNECT, endpoint, handler);
+    }
+    public void options(String endpoint, SimpleHandler handler) {
+        registerRoute(HttpMethod.OPTIONS, endpoint, handler);
+    }
     public void before(String endpoint, SimpleHandler handler) {
         registerRoute(HttpMethod.BEFORE, endpoint, handler);
     }
     public void after(String endpoint, SimpleHandler handler) {
         registerRoute(HttpMethod.AFTER, endpoint, handler);
     }
-    public void afterAfter(String endpoint, SimpleHandler handler) {registerRoute(HttpMethod.AFTERAFTER, endpoint, handler);}
+    public void afterAfter(String endpoint, SimpleHandler handler) {
+        registerRoute(HttpMethod.AFTERAFTER, endpoint, handler);
+    }
+
+    // ------------------ Helper Methods ------------------ //
+
+    public Map<String, RequestHandler> getRouteHandlers() {
+        return routeHandlers;
+    }
 
     // ------------------ Helper Classes ------------------ //
 
     /**
-     * Wrapper class that holds a middleware and its target path
+     * ClientAttachment holds per-connection state.
      */
-    private static class MiddlewareEntry {
-        private final Middleware middleware;
-
-        public MiddlewareEntry(Middleware middleware, String pathPrefix) {
-            this.middleware = middleware;
+    private static class ClientAttachment {
+        final ByteBuffer buffer;
+        final StringBuilder requestData = new StringBuilder();
+        final AsynchronousSocketChannel channel;
+        boolean isWebSocket = false;
+        ClientAttachment(ByteBuffer buffer, AsynchronousSocketChannel channel) {
+            this.buffer = buffer;
+            this.channel = channel;
         }
-    }
-
-    private static class RouteMatch {
-        private final RouteEntry entry;
-        private final Map<String, String> params;
-        public RouteMatch(RouteEntry entry, Map<String, String> params) {
-            this.entry = entry;
-            this.params = params;
-        }
-        public RouteEntry getEntry() { return entry; }
-        public Map<String, String> getParams() { return params; }
     }
 
     /**
-     * A simple pool for reusing direct ByteBuffers.
+     * MiddlewareEntry associates a middleware with an optional path prefix.
      */
-    private static class BufferPool {
-        private final int bufferSize; // Instance variable for buffer size
-        private final ConcurrentLinkedQueue<ByteBuffer> pool = new ConcurrentLinkedQueue<>();
+    private record MiddlewareEntry(Middleware middleware, String pathPrefix){}
 
-        public BufferPool(int initialSize, int bufferSize) {
-            this.bufferSize = bufferSize; // Initialize bufferSize
+    /**
+     * OffHeapBufferPool provides a pool of direct (off-heap) ByteBuffers.
+     */
+    private static class OffHeapBufferPool {
+        private final int bufferSize;
+        private final ConcurrentLinkedQueue<ByteBuffer> pool = new ConcurrentLinkedQueue<>();
+        OffHeapBufferPool(int initialSize, int bufferSize) {
+            this.bufferSize = bufferSize;
             for (int i = 0; i < initialSize; i++) {
-                pool.offer(ByteBuffer.allocateDirect(this.bufferSize)); // Use instance bufferSize
+                pool.offer(ByteBuffer.allocateDirect(this.bufferSize));
             }
         }
-
-        public ByteBuffer acquire() {
+        ByteBuffer acquire() {
             ByteBuffer buffer = pool.poll();
             if (buffer == null) {
                 return ByteBuffer.allocateDirect(this.bufferSize);
@@ -914,8 +789,7 @@ public class FlashServer {
             buffer.clear();
             return buffer;
         }
-
-        public void release(ByteBuffer buffer) {
+        void release(ByteBuffer buffer) {
             pool.offer(buffer);
         }
     }

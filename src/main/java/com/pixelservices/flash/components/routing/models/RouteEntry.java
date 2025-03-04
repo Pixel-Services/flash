@@ -1,7 +1,9 @@
-package com.pixelservices.flash.components;
+package com.pixelservices.flash.components.routing.models;
 
+import com.pixelservices.flash.components.RequestHandler;
 import com.pixelservices.flash.models.HttpMethod;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -13,6 +15,7 @@ public class RouteEntry {
     private final boolean isParameterized;
     private final boolean isDynamic;
     private final RoutePattern routePattern;
+    private final String[] pathSegments; // Changed to String[]
 
     /**
      * If the route ends with "/*", it is treated as a dynamic route.
@@ -32,6 +35,8 @@ public class RouteEntry {
             this.isParameterized = path.contains(":");
             this.routePattern = isParameterized ? new RoutePattern(path) : null;
         }
+        // Populate pathSegments in the constructor
+        this.pathSegments = parsePathSegments(path);
     }
 
     public HttpMethod getMethod() {
@@ -53,6 +58,14 @@ public class RouteEntry {
     public boolean isDynamic() {
         return isDynamic;
     }
+
+    /**
+     * Returns the path segments for Trie traversal as String array.
+     */
+    public String[] getPathSegments() {
+        return pathSegments;
+    }
+
 
     /**
      * For literal routes, the key is simply "METHOD:/literal/path".
@@ -82,7 +95,29 @@ public class RouteEntry {
         String prefix = dynamicPath.substring(0, dynamicPath.length() - 2);
         return "^" + Pattern.quote(prefix) + "(/.*)?$";
     }
+
+    /**
+     * Parses the path into segments, splitting by '/'.
+     * Removes leading/trailing slashes and empty segments.
+     * Returns String array.
+     */
+    private String[] parsePathSegments(String routePath) {
+        String path = routePath;
+        if (path.startsWith("/")) {
+            path = path.substring(1);
+        }
+        if (path.endsWith("/*")) {
+            path = path.substring(0, path.length() - 2); // Remove /* for dynamic routes
+        } else if (path.endsWith("/")) {
+            path = path.substring(0, path.length() - 1);
+        }
+
+        if (path.isEmpty()) {
+            return new String[0]; // Return empty String array
+        }
+
+        return Arrays.stream(path.split("/"))
+                .filter(segment -> !segment.isEmpty()) // Filter out empty segments
+                .toArray(String[]::new); // Convert Stream<String> to String[]
+    }
 }
-
-
-
