@@ -1,7 +1,7 @@
 package com.pixelservices.flash.models;
 
-import com.pixelservices.flash.lifecycle.Request;
-import com.pixelservices.flash.lifecycle.Response;
+import com.pixelservices.flash.components.http.lifecycle.Request;
+import com.pixelservices.flash.components.http.lifecycle.Response;
 
 public interface Middleware {
     /**

@@ -8,7 +8,7 @@ import java.util.Map;
 
 /**
  * MultipartParser parses HTTP multipart/form-data payloads into fields and files.
- *
+ * <p>
  * Note: This is a simplified implementation and may not handle all edge cases or binary data correctly.
  */
 public class MultipartParser {

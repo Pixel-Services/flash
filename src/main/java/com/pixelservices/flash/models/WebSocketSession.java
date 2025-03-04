@@ -69,11 +69,11 @@ public class WebSocketSession {
         ByteBuffer buffer;
         if (messageLength <= 125) {
             buffer = ByteBuffer.allocate(2 + messageLength);
-            buffer.put((byte) 0x81); // FIN + text frame opcode
+            buffer.put((byte) 0x81);
             buffer.put((byte) messageLength);
         } else if (messageLength <= 65535) {
             buffer = ByteBuffer.allocate(4 + messageLength);
-            buffer.put((byte) 0x81); // FIN + text frame opcode
+            buffer.put((byte) 0x81);
             buffer.put((byte) 126);
             buffer.putShort((short) messageLength);
         } else {
@@ -110,18 +110,14 @@ public class WebSocketSession {
     public void close(int statusCode, String reason) {
         byte[] reasonBytes = reason != null ? reason.getBytes(StandardCharsets.UTF_8) : new byte[0];
 
-        // Calculate frame size: 2 bytes for status code + reason text
         int frameSize = 2 + reasonBytes.length;
 
-        // Create the close frame
-        ByteBuffer closeFrame = ByteBuffer.allocate(frameSize + 2); // +2 for frame header
-        closeFrame.put((byte) 0x88); // FIN + close opcode (0x8)
-        closeFrame.put((byte) frameSize); // Payload length
+        ByteBuffer closeFrame = ByteBuffer.allocate(frameSize + 2);
+        closeFrame.put((byte) 0x88);
+        closeFrame.put((byte) frameSize);
 
-        // Put the status code (2 bytes, network byte order)
         closeFrame.putShort((short) statusCode);
 
-        // Put the reason if provided
         if (reasonBytes.length > 0) {
             closeFrame.put(reasonBytes);
         }
@@ -133,7 +129,6 @@ public class WebSocketSession {
             @Override
             public void completed(Integer result, Void attachment) {
                 try {
-                    // Wait a moment for the client to respond before closing
                     Thread.sleep(100);
                     channel.close();
                     PrettyLogger.log("WebSocket session closed with status: " + statusCode);

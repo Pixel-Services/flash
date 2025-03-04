@@ -1,4 +1,4 @@
-package com.pixelservices.flash.lifecycle;
+package com.pixelservices.flash.components.http.lifecycle;
 
 import org.json.JSONObject;
 

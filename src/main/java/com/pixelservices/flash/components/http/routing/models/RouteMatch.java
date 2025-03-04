@@ -1,4 +1,4 @@
-package com.pixelservices.flash.components.routing.models;
+package com.pixelservices.flash.components.http.routing.models;
 
 import java.util.Map;
 
