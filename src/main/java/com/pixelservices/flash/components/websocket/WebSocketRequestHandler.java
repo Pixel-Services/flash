@@ -148,7 +148,6 @@ public class WebSocketRequestHandler {
 
             @Override
             public void failed(Throwable exc, WebSocketSession session) {
-                PrettyLogger.withEmoji("WebSocket read failed: " + exc.getMessage(), "❌");
                 handler.onError(session, exc);
                 removeSession(session);
             }
