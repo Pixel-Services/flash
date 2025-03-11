@@ -48,6 +48,11 @@ public class PrettyLogger {
         logger.error(coloredMessage);
     }
 
+    public static void error(String message, Throwable e) {
+        String coloredMessage = applyHexColors(message+"&#reset");
+        logger.error(coloredMessage, e);
+    }
+
     /**
      * Logs a message with an emoji and optional hex color codes.
      *
@@ -144,7 +149,6 @@ class CustomLogFormatter implements LogFormatter {
 
         return PrettyLogger.applyHexColors(String.format("%s &#FFEE8C" + logEvent.getLoggerName() + " &#reset%s : %s", time, paddedLevel, message));
     }
-
 }
 
 
