@@ -16,7 +16,6 @@ import java.util.Collections;
 import java.util.List;
 
 public class PluginManager {
-    private final Logger logger = LoggerFactory.getLogger(PluginManager.class);
     private final List<Class<? extends FlashPlugin>> registeredPlugins = new ArrayList<>();
     private final List<InternalPluginWrapper> loadedPlugins = new ArrayList<>();
     private final FlashServer flashServer;
@@ -92,10 +91,19 @@ public class PluginManager {
     }
 
     private void enablePlugin(InternalPluginWrapper plugin) {
+        if (plugin.getStatus() == PluginWrapper.Status.ENABLED) {
+            return;
+        }
+        for (Class<? extends FlashPlugin> dependency : getDependencies(plugin.getPlugin().getClass())) {
+            InternalPluginWrapper dependencyWrapper = (InternalPluginWrapper) getPluginWrapper(dependency);
+            if (dependencyWrapper.getStatus() != PluginWrapper.Status.ENABLED) {
+                enablePlugin((dependencyWrapper));
+            }
+        }
         try {
             plugin.enable();
         } catch (Throwable e) {
-            logger.error("Failed to enable plugin: " + plugin.getPlugin().getClass().getSimpleName(), e);
+            PrettyLogger.error("Failed to enable plugin: " + plugin.getPlugin().getClass().getSimpleName(), e);
         }
     }
 
@@ -103,13 +111,13 @@ public class PluginManager {
         try {
             List<FlashPlugin> dependencies = new ArrayList<>();
             for (Class<? extends FlashPlugin> dependency : getDependencies(plugin)) {
-                dependencies.add(getPlugin(dependency));
+                dependencies.add(getPluginWrapper(dependency).getPlugin());
             }
             InternalPluginWrapper wrapper = new InternalPluginWrapper(plugin, dependencies.toArray(new FlashPlugin[0]), this);
             loadedPlugins.add(wrapper);
             return wrapper;
         } catch (PluginLoadException e) {
-            logger.error("Failed to load plugin " + plugin.getSimpleName(), e);
+            PrettyLogger.error("Failed to load plugin " + plugin.getSimpleName(), e);
             return null;
         }
     }
