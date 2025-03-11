@@ -15,10 +15,13 @@ import com.pixelservices.flash.exceptions.ServerStartupException;
 import com.pixelservices.flash.components.http.lifecycle.Request;
 import com.pixelservices.flash.components.http.lifecycle.Response;
 import com.pixelservices.flash.models.*;
+import com.pixelservices.flash.plugins.PluginLoadingStrategy;
+import com.pixelservices.flash.plugins.PluginManager;
 import com.pixelservices.flash.swagger.OpenAPIConfiguration;
 import com.pixelservices.flash.swagger.OpenAPISchemaGenerator;
 import com.pixelservices.flash.swagger.OpenAPIUITemplate;
 import com.pixelservices.flash.utils.PrettyLogger;
+import com.pixelservices.flashapi.FlashPlugin;
 import org.json.JSONObject;
 
 import java.io.IOException;
@@ -57,6 +60,9 @@ public class FlashServer {
     // Virtual thread executor for client connections.
     private static final ExecutorService VIRTUAL_THREAD_EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
 
+    // Plugin System
+    private final PluginManager pluginManager;
+
     // ------------------ Off-Heap Buffer Management ------------------ //
     public static final int BUFFER_POOL_SIZE = 4096;
     public static final int BUFFER_SIZE = 16384;
@@ -80,6 +86,7 @@ public class FlashServer {
         this.config = config;
         this.staticFileServer = new StaticFileServer(this);
         this.dynamicFileServer = new DynamicFileServer(this);
+        pluginManager = new PluginManager(this);
         this.httpRequestHandler = new HttpRequestHandler(this, routeRegistry);
         this.webSocketRequestHandler = new WebSocketRequestHandler(this, webSocketHandlers, activeSessions, WEBSOCKET_BUFFER_POOL); // Initialize here
     }
@@ -100,8 +107,12 @@ public class FlashServer {
         try {
             serverSocketChannel = AsynchronousServerSocketChannel.open().bind(new InetSocketAddress(port));
             acceptNextConnection();
-            final long elapsedTime = System.currentTimeMillis() - startTime;
-            final String[] flashPixelArt = {
+
+            // Enable plugins
+            pluginManager.enablePlugins();
+
+            long elapsedTime = System.currentTimeMillis() - startTime;
+            String[] flashPixelArt = {
                     "&#reset",
                     "      *      ",
                     "     **      ",
@@ -123,6 +134,31 @@ public class FlashServer {
         }
     }
 
+    // ------------------ Plugin System ------------------ //
+    /**
+     * Registers a FLash plugin with the server.
+     */
+    public void registerPlugin(Class<? extends FlashPlugin> plugin) {
+        pluginManager.registerPlugin(plugin);
+    }
+
+    /**
+     * Retrieves a Flash plugin from the server.
+     */
+    public FlashPlugin getPlugin(Class<? extends FlashPlugin> plugin) {
+        return pluginManager.getPlugin(plugin);
+    }
+
+    /**
+     * Sets the plugin loading strategy for the server.
+     */
+    public void setPluginLoadingStrategy(PluginLoadingStrategy loadingStrategy) {
+        pluginManager.setLoadingStrategy(loadingStrategy);
+    }
+
+    /**
+     * Accepts incoming connections asynchronously.
+     */
     private void acceptNextConnection() {
         serverSocketChannel.accept(null, new CompletionHandler<>() {
             @Override

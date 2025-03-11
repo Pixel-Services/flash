@@ -29,6 +29,13 @@
     </repositories>
 
     <dependencies>
+        <!-- Plugin -->
+        <dependency>
+            <groupId>com.pixelservices.flashapi</groupId>
+            <artifactId>FlashApi</artifactId>
+            <version>1.2-SNAPSHOT</version>
+        </dependency>
+
         <!-- JSON Parsing -->
         <dependency>
             <groupId>org.json</groupId>
