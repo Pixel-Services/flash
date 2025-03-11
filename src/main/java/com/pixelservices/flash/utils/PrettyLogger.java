@@ -142,7 +142,7 @@ class CustomLogFormatter implements LogFormatter {
 
         String paddedLevel = String.format("%-" + LEVEL_WIDTH + "s", level);
 
-        return PrettyLogger.applyHexColors(String.format("%s &#FFEE8CFlash &#reset%s : %s", time, paddedLevel, message));
+        return PrettyLogger.applyHexColors(String.format("%s &#FFEE8C" + logEvent.getLoggerName() + " &#reset%s : %s", time, paddedLevel, message));
     }
 
 }
