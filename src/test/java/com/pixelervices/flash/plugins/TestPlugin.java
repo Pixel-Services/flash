@@ -16,7 +16,9 @@ public class TestPlugin extends FlashPlugin {
 
         TestPluginDependency dependency = (TestPluginDependency) getDependency(TestPluginDependency.class);
 
-        dependency.getLogger().info("TestPluginDependency logger accessed");
+        if (dependency.testMethod().equals("TEST")) {
+            logger.info("Dependency method works");
+        }
     }
 
     @Override
