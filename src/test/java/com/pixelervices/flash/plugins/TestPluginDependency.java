@@ -1,17 +1,15 @@
 package com.pixelervices.flash.plugins;
 
 import com.pixelservices.flashapi.FlashPlugin;
-import com.pixelservices.flashapi.annotations.DependsOn;
 
 public class TestPluginDependency extends FlashPlugin {
     @Override
-    void onEnable() {
-
+    public void onEnable() {
+        getLogger().info("TestPluginDependency enabled");
     }
 
     @Override
-    void onDisable() {
-
+    public void onDisable() {
+        getLogger().info("TestPluginDependency disabled");
     }
-
 }
