@@ -20,4 +20,9 @@ class InternalPluginWrapper extends PluginWrapper {
     public void disable() {
         super.disable();
     }
+
+    @Override
+    public Status getStatus() {
+        return super.getStatus();
+    }
 }

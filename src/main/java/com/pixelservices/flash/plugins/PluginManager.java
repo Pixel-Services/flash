@@ -1,6 +1,7 @@
 package com.pixelservices.flash.plugins;
 
 import com.pixelservices.flash.components.FlashServer;
+import com.pixelservices.flash.utils.PrettyLogger;
 import com.pixelservices.flashapi.FlashPlugin;
 import com.pixelservices.flashapi.PluginWrapper;
 import com.pixelservices.flashapi.annotations.DependsOn;
@@ -33,10 +34,10 @@ public class PluginManager {
 
     public void registerPlugin(Class<? extends FlashPlugin> plugin) {
         if (enabled) {
-            logger.warn("Plugin " + plugin.getSimpleName() + " was registered after the starting the server. This may cause issues.");
+            PrettyLogger.warn("Plugin " + plugin.getSimpleName() + " was registered after the starting the server. This may cause issues.");
         }
         if (registeredPlugins.contains(plugin)) {
-            logger.warn("Plugin " + plugin.getSimpleName() + " was registered multiple times.");
+            PrettyLogger.warn("Plugin " + plugin.getSimpleName() + " was registered multiple times.");
             return;
         }
         for (Class<? extends FlashPlugin> dependency : getDependencies(plugin)) {
@@ -48,15 +49,19 @@ public class PluginManager {
         if (loadingStrategy == PluginLoadingStrategy.EAGER) {
             loadPlugin(plugin);
         }
-        logger.info("Registered plugin: " + plugin.getSimpleName());
+        PrettyLogger.withEmoji("Registered plugin: " + plugin.getSimpleName(), "🔌");
         if (plugin.isAnnotationPresent(PreServer.class)) {
-            logger.warn("Plugin " + plugin.getSimpleName() + " is configured to be enabled before the server starts. This feature is experimental and may cause issues.");
+            PrettyLogger.warn("Plugin " + plugin.getSimpleName() + " is configured to be enabled before the server starts. This feature is experimental and may cause issues.");
             enablePlugin((InternalPluginWrapper) getPluginWrapper(plugin));
         }
     }
 
-    public FlashPlugin getPlugin(Class<? extends FlashPlugin> plugin) {
-        return getPluginWrapper(plugin).getPlugin();
+    public FlashPlugin getPlugin(Class<? extends FlashPlugin> pluginClass) {
+        InternalPluginWrapper wrapper = (InternalPluginWrapper) getPluginWrapper(pluginClass);
+        if (wrapper.getStatus() != PluginWrapper.Status.ENABLED) {
+            enablePlugin(wrapper);
+        }
+        return wrapper.getPlugin();
     }
 
     public void enablePlugins() {
@@ -74,8 +79,8 @@ public class PluginManager {
     }
 
     private PluginWrapper getPluginWrapper(Class<? extends FlashPlugin> plugin) {
-        if (registeredPlugins.contains(plugin)) {
-            logger.warn("Plugin " + plugin.getSimpleName() + " was retrieved without being registered first. This may cause issues.");
+        if (!registeredPlugins.contains(plugin)) {
+            PrettyLogger.warn("Plugin " + plugin.getSimpleName() + " was retrieved without being registered first. Flash handled this automatically, but it is recommended to register plugins before using them.");
             registerPlugin(plugin);
         }
         for (PluginWrapper wrapper : loadedPlugins) {
