@@ -34,7 +34,6 @@
             <groupId>com.pixelservices.flashapi</groupId>
             <artifactId>FlashApi</artifactId>
             <version>0.2.6</version>
-
         </dependency>
 
         <!-- JSON Parsing -->
