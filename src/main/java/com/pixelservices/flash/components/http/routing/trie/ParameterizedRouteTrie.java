@@ -2,90 +2,133 @@ package com.pixelservices.flash.components.http.routing.trie;
 
 import com.pixelservices.flash.components.http.routing.models.RouteEntry;
 import com.pixelservices.flash.components.http.routing.models.RouteMatch;
-import com.pixelservices.flash.models.HttpMethod;
+import com.pixelservices.flash.components.http.HttpMethod;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.StampedLock;
 
-/**
- * Trie for storing parameterized routes.
- */
 public class ParameterizedRouteTrie {
-    private static class TrieNode {
-        final Map<String, TrieNode> children = new HashMap<>(); // Literal path segments
-        TrieNode parameterChild = null; // Child for parameter segment (e.g., ":param")
+    private static final class CompactTrieNode {
+        private static final int INITIAL_CAPACITY = 16;
+
+        String[] literalSegments = new String[INITIAL_CAPACITY];
+        CompactTrieNode[] literalChildren = new CompactTrieNode[INITIAL_CAPACITY];
+        int literalCount = 0;
+
+        CompactTrieNode parameterChild = null;
+        RouteEntry parameterRouteEntry = null;
+        String parameterName = null;
         RouteEntry routeEntry = null;
 
-        // for debugging and visualization
-        private String segmentType = "literal"; // "literal", "parameter", "root"
+        CompactTrieNode findOrCreateLiteralChild(String segment) {
+            int index = Arrays.binarySearch(literalSegments, 0, literalCount, segment);
+            if (index >= 0) {
+                return literalChildren[index];
+            }
 
-        TrieNode(String segmentType) {
-            this.segmentType = segmentType;
+            if (literalCount == literalSegments.length) {
+                int newCapacity = literalSegments.length * 2;
+                literalSegments = Arrays.copyOf(literalSegments, newCapacity);
+                literalChildren = Arrays.copyOf(literalChildren, newCapacity);
+            }
+
+            index = -(index + 1);
+            System.arraycopy(literalSegments, index, literalSegments, index + 1, literalCount - index);
+            System.arraycopy(literalChildren, index, literalChildren, index + 1, literalCount - index);
+
+            CompactTrieNode newChild = new CompactTrieNode();
+            literalSegments[index] = segment;
+            literalChildren[index] = newChild;
+            literalCount++;
+            return newChild;
         }
-        TrieNode() {} // default constructor for root
     }
 
-    private final TrieNode root = new TrieNode("root");
+    private final CompactTrieNode root = new CompactTrieNode();
+    private final StampedLock lock = new StampedLock();
 
-    public synchronized void insert(RouteEntry routeEntry) {
-        TrieNode currentNode = root;
-        String[] segments = routeEntry.getPathSegments(); // Parse path into segments
+    public void insert(RouteEntry routeEntry) {
+        long stamp = lock.writeLock();
+        try {
+            CompactTrieNode currentNode = root;
+            String[] segments = routeEntry.getPathSegments();
 
-        for (String segment : segments) {
-            if (segment.startsWith(":")) {
-                // Parameter segment
-                if (currentNode.parameterChild == null) {
-                    currentNode.parameterChild = new TrieNode("parameter");
+            for (String segment : segments) {
+                if (segment.startsWith(":")) {
+                    if (currentNode.parameterChild == null) {
+                        currentNode.parameterChild = new CompactTrieNode();
+                        currentNode.parameterChild.parameterName = segment.substring(1);
+                    }
+                    currentNode = currentNode.parameterChild;
+                    currentNode.parameterRouteEntry = routeEntry;
+                } else {
+                    currentNode = currentNode.findOrCreateLiteralChild(segment);
                 }
-                currentNode = currentNode.parameterChild;
-            } else {
-                // Literal segment
-                currentNode = currentNode.children.computeIfAbsent(segment, s -> new TrieNode("literal"));
             }
+            currentNode.routeEntry = routeEntry;
+        } finally {
+            lock.unlockWrite(stamp);
         }
-        currentNode.routeEntry = routeEntry;
     }
 
     public RouteMatch search(HttpMethod method, String path) {
-        TrieNode currentNode = root;
-        Map<String, String> params = new HashMap<>();
+        long stamp = lock.tryOptimisticRead();
+
+        CompactTrieNode currentNode = root;
+        Map<String, String> params = null;
         String[] segments = path.split("/");
 
         for (String segment : segments) {
             if (segment.isEmpty()) continue;
 
-            TrieNode literalChildNode = currentNode.children.get(segment);
-            if (literalChildNode != null) {
-                currentNode = literalChildNode;
+            int index = Arrays.binarySearch(currentNode.literalSegments, 0, currentNode.literalCount, segment);
+            if (index >= 0) {
+                currentNode = currentNode.literalChildren[index];
             } else if (currentNode.parameterChild != null) {
-                String paramName =
-                        currentNode.parameterChild.segmentType.equals("parameter") && currentNode.parameterChild.routeEntry != null && currentNode.parameterChild.routeEntry.getPathSegments().length > 0 ?
-                                currentNode.parameterChild.routeEntry.getPathSegments()[currentNode.parameterChild.routeEntry.getPathSegments().length-1].substring(1) : "param";
-                params.put(paramName, segment);
+                if (params == null) params = new HashMap<>();
+                params.put(currentNode.parameterChild.parameterName, segment);
                 currentNode = currentNode.parameterChild;
             } else {
                 return null;
             }
         }
 
-        if (currentNode.routeEntry != null && currentNode.routeEntry.getMethod() == method) {
-            return new RouteMatch(currentNode.routeEntry, params);
-        }
-        return null;
+        RouteEntry matchedEntry = currentNode.routeEntry != null
+                ? currentNode.routeEntry
+                : currentNode.parameterRouteEntry;
+
+        return (matchedEntry != null && matchedEntry.getMethod() == method)
+                ? new RouteMatch(matchedEntry, params != null ? params : Map.of())
+                : null;
     }
 
     public int size() {
-        return count(root);
+        long stamp = lock.tryOptimisticRead();
+        int count = countRoutes(root);
+        if (!lock.validate(stamp)) {
+            stamp = lock.readLock();
+            try {
+                return countRoutes(root);
+            } finally {
+                lock.unlockRead(stamp);
+            }
+        }
+        return count;
     }
 
-    private int count(TrieNode node) {
-        int cnt = (node.routeEntry != null) ? 1 : 0;
-        for (TrieNode child : node.children.values()) {
-            cnt += count(child);
+    private int countRoutes(CompactTrieNode node) {
+        int cnt = (node.routeEntry != null || node.parameterRouteEntry != null) ? 1 : 0;
+
+        for (int i = 0; i < node.literalCount; i++) {
+            cnt += countRoutes(node.literalChildren[i]);
         }
+
         if (node.parameterChild != null) {
-            cnt += count(node.parameterChild);
+            cnt += countRoutes(node.parameterChild);
         }
+
         return cnt;
     }
 }

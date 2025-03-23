@@ -1,4 +1,4 @@
-package com.pixelservices.flash.models;
+package com.pixelservices.flash.components.websocket;
 
 public abstract class WebSocketHandler {
     public abstract void onOpen(WebSocketSession session);

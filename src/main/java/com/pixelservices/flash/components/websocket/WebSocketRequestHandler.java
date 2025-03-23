@@ -2,9 +2,7 @@ package com.pixelservices.flash.components.websocket;
 
 import com.pixelservices.flash.components.FlashServer;
 import com.pixelservices.flash.components.OffHeapBufferPool;
-import com.pixelservices.flash.models.RequestInfo;
-import com.pixelservices.flash.models.WebSocketHandler;
-import com.pixelservices.flash.models.WebSocketSession;
+import com.pixelservices.flash.components.http.routing.models.RequestInfo;
 import com.pixelservices.flash.utils.PrettyLogger;
 
 import java.nio.ByteBuffer;

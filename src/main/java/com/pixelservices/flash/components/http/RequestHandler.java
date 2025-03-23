@@ -1,13 +1,11 @@
 package com.pixelservices.flash.components.http;
 
-import com.pixelservices.flash.components.expected.ExpectedBodyField;
-import com.pixelservices.flash.components.expected.ExpectedBodyFile;
-import com.pixelservices.flash.components.expected.ExpectedRequestParameter;
+import com.pixelservices.flash.components.http.expected.ExpectedBodyField;
+import com.pixelservices.flash.components.http.expected.ExpectedBodyFile;
+import com.pixelservices.flash.components.http.expected.ExpectedRequestParameter;
 import com.pixelservices.flash.components.http.lifecycle.Request;
 import com.pixelservices.flash.components.http.lifecycle.Response;
-import com.pixelservices.flash.models.HandlerType;
-import com.pixelservices.flash.models.HandlerSpecification;
-import com.pixelservices.flash.models.RouteInfo;
+import com.pixelservices.flash.components.http.routing.models.RouteInfo;
 import com.pixelservices.flash.utils.RouteParameterParser;
 import org.json.JSONObject;
 

@@ -1,5 +1,7 @@
 package com.pixelservices.flash.models;
 
+import com.pixelservices.flash.components.http.HandlerType;
+
 import java.util.EnumMap;
 import java.util.Map;
 

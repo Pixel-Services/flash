@@ -1,4 +1,4 @@
-package com.pixelservices.flash.models;
+package com.pixelservices.flash.components.http;
 
 import java.util.HashMap;
 
@@ -18,7 +18,7 @@ public enum HttpMethod {
 
     /**
      * Gets the HttpMethod corresponding to the provided string. If no corresponding method can be found
-     * {@link com.pixelservices.flash.models.HttpMethod#UNSUPPORTED} will be returned.
+     * {@link HttpMethod#UNSUPPORTED} will be returned.
      *
      * @param methodStr The string containing HTTP method name
      * @return          The HttpMethod corresponding to the provided string

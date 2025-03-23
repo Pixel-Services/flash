@@ -1,4 +1,4 @@
-package com.pixelservices.flash.components.expected;
+package com.pixelservices.flash.components.http.expected;
 
 import com.pixelservices.flash.components.http.RequestHandler;
 import com.pixelservices.flash.utils.Parser;

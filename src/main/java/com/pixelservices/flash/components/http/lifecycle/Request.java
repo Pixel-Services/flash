@@ -1,6 +1,6 @@
 package com.pixelservices.flash.components.http.lifecycle;
 
-import com.pixelservices.flash.models.HttpMethod;
+import com.pixelservices.flash.components.http.HttpMethod;
 
 import java.net.InetSocketAddress;
 import java.util.*;

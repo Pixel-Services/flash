@@ -4,12 +4,15 @@ import com.pixelservices.flash.components.fileserver.DynamicFileServer;
 import com.pixelservices.flash.components.fileserver.DynamicFileServerConfiguration;
 import com.pixelservices.flash.components.fileserver.StaticFileServer;
 import com.pixelservices.flash.components.fileserver.StaticFileServerConfiguration;
-import com.pixelservices.flash.components.http.HttpRequestHandler;
-import com.pixelservices.flash.components.http.RequestHandler;
+import com.pixelservices.flash.components.http.*;
+import com.pixelservices.flash.components.http.routing.models.RequestInfo;
 import com.pixelservices.flash.components.http.routing.models.RouteEntry;
 import com.pixelservices.flash.components.http.routing.RouteRegistry;
 import com.pixelservices.flash.components.http.routing.Router;
+import com.pixelservices.flash.components.http.routing.models.SimpleHandler;
+import com.pixelservices.flash.components.websocket.WebSocketHandler;
 import com.pixelservices.flash.components.websocket.WebSocketRequestHandler;
+import com.pixelservices.flash.components.websocket.WebSocketSession;
 import com.pixelservices.flash.exceptions.RequestExceptionHandler;
 import com.pixelservices.flash.exceptions.ServerStartupException;
 import com.pixelservices.flash.components.http.lifecycle.Request;
@@ -105,7 +108,7 @@ public class FlashServer {
                     "&#reset",
                     "      *      ",
                     "     **      ",
-                    "    ***       &#reset Started &#77dd77successfully&#reset on port &#FF746C" + port + "&#reset",
+                    "    ***       &#reset Started Mdd77successfully&#reset on port &#FF746C" + port + "&#reset",
                     "   *******    &#reset Startup time: &#FF746C" + elapsedTime + "&#reset ms",
                     "      ***     &#reset Serving " + routeRegistry.getLiteralRouteCount() + " literal routes, " + routeRegistry.getParameterizedRouteCount() + " parameterized routes, " + routeRegistry.getDynamicRouteCount() + " dynamic routes",
                     "      **     ",
@@ -190,6 +193,7 @@ public class FlashServer {
             PrettyLogger.withEmoji(handlerType.name() + " " + routingType + " Route registered: [" + method + "] " + fullPath, handlerType.getEmoji());
         }
         handler.setSpecification(new HandlerSpecification(handler, fullPath, method, handler.isEnforcedNonNullBody()));
+        routeHandlers.put(method.name() + ":" + fullPath, handler);
     }
 
     public void registerRoute(HttpMethod method, String fullPath, RequestHandler handler) {
@@ -263,11 +267,17 @@ public class FlashServer {
 
     private void processReadData(ClientAttachment att) {
         ByteBuffer buf = att.buffer;
+
+        PrettyLogger.log("Buffer state before flip - Position: " + buf.position() + ", Limit: " + buf.limit() + ", Capacity: " + buf.capacity()); // Logging buffer state
+
         buf.flip();
+        PrettyLogger.log("Buffer state after flip - Position: " + buf.position() + ", Limit: " + buf.limit() + ", Capacity: " + buf.capacity()); // Logging buffer state
         try {
             CharBuffer charBuffer = decodeBuffer(buf);
             att.requestData.append(charBuffer);
             buf.clear();
+            PrettyLogger.log("Buffer state after clear - Position: " + buf.position() + ", Limit: " + buf.limit() + ", Capacity: " + buf.capacity()); // Logging buffer state
+
 
             String fullRequestData = att.requestData.toString();
             if (fullRequestData.contains("\r\n\r\n")) {
@@ -283,7 +293,12 @@ public class FlashServer {
     private CharBuffer decodeBuffer(ByteBuffer buf) throws CharacterCodingException {
         CharsetDecoder decoder = UTF8_DECODER.get();
         decoder.reset();
-        return decoder.decode(buf);
+
+        ByteBuffer duplicateBuffer = buf.duplicate();
+        PrettyLogger.log("Duplicate Buffer state before decode - Position: " + duplicateBuffer.position() + ", Limit: " + duplicateBuffer.limit() + ", Capacity: " + duplicateBuffer.capacity()); // Logging buffer state
+        CharBuffer decodedCharBuffer = decoder.decode(duplicateBuffer);
+        PrettyLogger.log("Duplicate Buffer state after decode - Position: " + duplicateBuffer.position() + ", Limit: " + duplicateBuffer.limit() + ", Capacity: " + duplicateBuffer.capacity()); // Logging buffer state
+        return decodedCharBuffer;
     }
 
     private void handleRequest(ClientAttachment att, String fullRequestData) {
@@ -311,6 +326,7 @@ public class FlashServer {
 
     private void handleFailure(Throwable exc, ClientAttachment att) {
         PrettyLogger.withEmoji("Read failed: " + exc.getMessage(), "❌");
+        PrettyLogger.log("Buffer state on read fail - Position: " + att.buffer.position() + ", Limit: " + att.buffer.limit() + ", Capacity: " + att.buffer.capacity()); // Logging buffer state on failure
         new RequestExceptionHandler(att.channel, new Exception(exc)).handle();
         cleanupResources(att);
     }

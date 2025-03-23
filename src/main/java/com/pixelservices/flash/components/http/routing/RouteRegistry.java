@@ -4,8 +4,8 @@ import com.pixelservices.flash.components.http.routing.models.RouteEntry;
 import com.pixelservices.flash.components.http.routing.models.RouteMatch;
 import com.pixelservices.flash.components.http.routing.trie.DynamicRoutePrefixTrie;
 import com.pixelservices.flash.components.http.routing.trie.ParameterizedRouteTrie;
-import com.pixelservices.flash.components.http.routing.trie.RouteTrie;
-import com.pixelservices.flash.models.HttpMethod;
+import com.pixelservices.flash.components.http.routing.trie.LiteralRouteTrie;
+import com.pixelservices.flash.components.http.HttpMethod;
 
 import java.util.Collections;
 
@@ -13,7 +13,7 @@ import java.util.Collections;
  * Manages route registration and lookup using different Trie structures.
  */
 public class RouteRegistry {
-    private final RouteTrie literalTrie = new RouteTrie();
+    private final LiteralRouteTrie literalTrie = new LiteralRouteTrie();
     private final ParameterizedRouteTrie parameterizedRouteTrie = new ParameterizedRouteTrie();
     private final DynamicRoutePrefixTrie dynamicRoutePrefixTrie = new DynamicRoutePrefixTrie();
 

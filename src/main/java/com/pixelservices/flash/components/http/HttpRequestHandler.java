@@ -1,16 +1,17 @@
 package com.pixelservices.flash.components.http;
 
 import com.pixelservices.flash.components.*;
-import com.pixelservices.flash.components.expected.ExpectedBodyField;
-import com.pixelservices.flash.components.expected.ExpectedBodyFile;
-import com.pixelservices.flash.components.expected.ExpectedRequestParameter;
+import com.pixelservices.flash.components.http.expected.ExpectedBodyField;
+import com.pixelservices.flash.components.http.expected.ExpectedBodyFile;
+import com.pixelservices.flash.components.http.expected.ExpectedRequestParameter;
 import com.pixelservices.flash.components.http.routing.RouteRegistry;
 import com.pixelservices.flash.components.http.routing.models.RouteMatch;
 import com.pixelservices.flash.exceptions.RequestExceptionHandler;
 import com.pixelservices.flash.exceptions.UnmatchedHandlerException;
 import com.pixelservices.flash.components.http.lifecycle.Request;
 import com.pixelservices.flash.components.http.lifecycle.Response;
-import com.pixelservices.flash.models.RequestInfo;
+import com.pixelservices.flash.components.http.routing.models.RequestInfo;
+import com.pixelservices.flash.models.ClientAttachment;
 import com.pixelservices.flash.utils.PrettyLogger;
 
 import java.net.InetSocketAddress;
@@ -54,7 +55,6 @@ public class HttpRequestHandler {
             response.body(convertToResponseBody(responseBody));
             sendResponse(response, clientChannel);
         } catch (Exception e) {
-            PrettyLogger.withEmoji("Error handling request: " + e.getMessage(), "❌");
             new RequestExceptionHandler(clientChannel, e).handle();
         } finally {
             if (!att.isWebSocket) {

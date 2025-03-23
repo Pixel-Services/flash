@@ -1,4 +1,4 @@
-package com.pixelservices.flash.models;
+package com.pixelservices.flash.components.http.routing.models;
 
 import com.pixelservices.flash.components.http.lifecycle.Request;
 import com.pixelservices.flash.components.http.lifecycle.Response;

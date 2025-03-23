@@ -1,4 +1,6 @@
-package com.pixelservices.flash.models;
+package com.pixelservices.flash.components.http.routing.models;
+
+import com.pixelservices.flash.components.http.HttpMethod;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

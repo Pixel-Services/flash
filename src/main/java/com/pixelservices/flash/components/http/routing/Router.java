@@ -4,8 +4,8 @@ import com.pixelservices.flash.components.FlashServer;
 import com.pixelservices.flash.components.http.RequestHandler;
 import com.pixelservices.flash.components.http.lifecycle.Request;
 import com.pixelservices.flash.components.http.lifecycle.Response;
-import com.pixelservices.flash.models.HttpMethod;
-import com.pixelservices.flash.models.RouteInfo;
+import com.pixelservices.flash.components.http.HttpMethod;
+import com.pixelservices.flash.components.http.routing.models.RouteInfo;
 
 import java.lang.reflect.Constructor;
 

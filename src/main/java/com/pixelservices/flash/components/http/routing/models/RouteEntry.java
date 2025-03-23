@@ -1,7 +1,7 @@
 package com.pixelservices.flash.components.http.routing.models;
 
 import com.pixelservices.flash.components.http.RequestHandler;
-import com.pixelservices.flash.models.HttpMethod;
+import com.pixelservices.flash.components.http.HttpMethod;
 
 import java.util.Arrays;
 import java.util.Collections;

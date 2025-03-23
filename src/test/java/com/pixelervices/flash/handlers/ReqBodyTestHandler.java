@@ -1,11 +1,11 @@
 package com.pixelervices.flash.handlers;
 
-import com.pixelservices.flash.components.expected.ExpectedBodyField;
+import com.pixelservices.flash.components.http.expected.ExpectedBodyField;
 import com.pixelservices.flash.components.http.RequestHandler;
 import com.pixelservices.flash.components.http.lifecycle.Request;
 import com.pixelservices.flash.components.http.lifecycle.Response;
-import com.pixelservices.flash.models.HttpMethod;
-import com.pixelservices.flash.models.RouteInfo;
+import com.pixelservices.flash.components.http.HttpMethod;
+import com.pixelservices.flash.components.http.routing.models.RouteInfo;
 
 @RouteInfo(method = HttpMethod.POST, endpoint = "/reqbody")
 public class ReqBodyTestHandler extends RequestHandler {

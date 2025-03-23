@@ -1,9 +1,8 @@
-package com.pixelservices.flash.models;
+package com.pixelservices.flash.components.http;
 
-import com.pixelservices.flash.components.expected.ExpectedBodyField;
-import com.pixelservices.flash.components.expected.ExpectedBodyFile;
-import com.pixelservices.flash.components.expected.ExpectedRequestParameter;
-import com.pixelservices.flash.components.http.RequestHandler;
+import com.pixelservices.flash.components.http.expected.ExpectedBodyField;
+import com.pixelservices.flash.components.http.expected.ExpectedBodyFile;
+import com.pixelservices.flash.components.http.expected.ExpectedRequestParameter;
 
 import java.util.Map;
 

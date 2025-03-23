@@ -1,4 +1,4 @@
-package com.pixelservices.flash.models;
+package com.pixelservices.flash.components.http;
 
 /**
  * Enum representing the different types of handlers.

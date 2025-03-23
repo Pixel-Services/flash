@@ -1,5 +1,6 @@
-package com.pixelservices.flash.models;
+package com.pixelservices.flash.components.websocket;
 
+import com.pixelservices.flash.components.http.routing.models.RequestInfo;
 import com.pixelservices.flash.utils.PrettyLogger;
 
 import java.io.IOException;

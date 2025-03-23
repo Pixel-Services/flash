@@ -1,11 +1,11 @@
 package com.pixelervices.flash.handlers;
 
-import com.pixelservices.flash.components.expected.ExpectedBodyFile;
+import com.pixelservices.flash.components.http.expected.ExpectedBodyFile;
 import com.pixelservices.flash.components.http.RequestHandler;
 import com.pixelservices.flash.components.http.lifecycle.Request;
 import com.pixelservices.flash.components.http.lifecycle.Response;
-import com.pixelservices.flash.models.HttpMethod;
-import com.pixelservices.flash.models.RouteInfo;
+import com.pixelservices.flash.components.http.HttpMethod;
+import com.pixelservices.flash.components.http.routing.models.RouteInfo;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;

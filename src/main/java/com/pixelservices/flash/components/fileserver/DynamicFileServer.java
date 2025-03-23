@@ -1,8 +1,8 @@
 package com.pixelservices.flash.components.fileserver;
 
 import com.pixelservices.flash.components.FlashServer;
-import com.pixelservices.flash.models.HandlerType;
-import com.pixelservices.flash.models.HttpMethod;
+import com.pixelservices.flash.components.http.HandlerType;
+import com.pixelservices.flash.components.http.HttpMethod;
 import com.pixelservices.flash.utils.PrettyLogger;
 
 import java.io.IOException;

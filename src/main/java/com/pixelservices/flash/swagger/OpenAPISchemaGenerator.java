@@ -1,10 +1,11 @@
 package com.pixelservices.flash.swagger;
 
 import com.pixelservices.flash.components.FlashServer;
-import com.pixelservices.flash.components.expected.ExpectedRequestParameter;
+import com.pixelservices.flash.components.http.HttpMethod;
+import com.pixelservices.flash.components.http.expected.ExpectedRequestParameter;
 import com.pixelservices.flash.components.http.RequestHandler;
-import com.pixelservices.flash.models.HandlerSpecification;
-import com.pixelservices.flash.models.HandlerType;
+import com.pixelservices.flash.components.http.HandlerSpecification;
+import com.pixelservices.flash.components.http.HandlerType;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.media.*;
@@ -123,7 +124,7 @@ public class OpenAPISchemaGenerator {
         return new RequestBody().content(content).required(true);
     }
 
-    private static void setOperationForHttpMethod(PathItem pathItem, com.pixelservices.flash.models.HttpMethod method, Operation operation) {
+    private static void setOperationForHttpMethod(PathItem pathItem, HttpMethod method, Operation operation) {
         switch (method) {
             case GET -> pathItem.setGet(operation);
             case POST -> pathItem.setPost(operation);

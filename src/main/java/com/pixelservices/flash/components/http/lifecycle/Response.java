@@ -95,7 +95,11 @@ public class Response {
      * Marks the response as finalized, preventing further modifications.
      */
     public void finalizeResponse() {
-        this.finalized = true;
+        if (!this.finalized) { // Only finalize once
+            this.finalized = true;
+            byte[] bodyBytes = getSerializedBody();
+            headers.put("Content-Length", String.valueOf(bodyBytes.length));
+        }
     }
 
     /**
@@ -112,13 +116,13 @@ public class Response {
                 .append(getStatusMessage(statusCode))
                 .append("\r\n");
 
-        headers.putIfAbsent("Content-Type", contentType);
+        headers.putIfAbsent("Content-Type", contentType); // Ensure Content-Type is set if not already
 
         headers.forEach((key, value) -> headerBuilder.append(key).append(": ").append(value).append("\r\n"));
         headerBuilder.append("\r\n"); // End of headers
 
         byte[] headerBytes = headerBuilder.toString().getBytes(StandardCharsets.UTF_8);
-        byte[] bodyBytes = getSerializedBody();
+        byte[] bodyBytes = getSerializedBody(); // Get body bytes here
 
         // Combine headers and body without string conversion for body
         ByteBuffer buffer = ByteBuffer.allocate(headerBytes.length + bodyBytes.length);
