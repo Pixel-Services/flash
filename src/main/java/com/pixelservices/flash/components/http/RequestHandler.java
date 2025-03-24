@@ -200,7 +200,7 @@ public abstract class RequestHandler {
      * @param req The request object
      * @param res The response object
      */
-    void setRequestResponse(Request req, Response res) {
+    public void setRequestResponse(Request req, Response res) {
         this.req = req;
         this.res = res;
     }

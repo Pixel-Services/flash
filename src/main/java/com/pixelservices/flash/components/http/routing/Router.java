@@ -1,10 +1,13 @@
 package com.pixelservices.flash.components.http.routing;
 
 import com.pixelservices.flash.components.FlashServer;
+import com.pixelservices.flash.components.http.HandlerType;
+import com.pixelservices.flash.components.http.HttpMethod;
 import com.pixelservices.flash.components.http.RequestHandler;
 import com.pixelservices.flash.components.http.lifecycle.Request;
 import com.pixelservices.flash.components.http.lifecycle.Response;
-import com.pixelservices.flash.components.http.HttpMethod;
+import com.pixelservices.flash.components.http.pool.HandlerPool;
+import com.pixelservices.flash.components.http.pool.HandlerPoolManager;
 import com.pixelservices.flash.components.http.routing.models.RouteInfo;
 
 import java.lang.reflect.Constructor;
@@ -12,6 +15,7 @@ import java.lang.reflect.Constructor;
 public class Router {
     private final String basePath;
     private final FlashServer server;
+    private final HandlerPoolManager poolManager;
 
     /**
      * Constructs a Router with a given base path and FlashServer instance.
@@ -22,35 +26,38 @@ public class Router {
     public Router(String basePath, FlashServer server) {
         this.basePath = basePath.endsWith("/") ? basePath.substring(0, basePath.length() - 1) : basePath;
         this.server = server;
+        this.poolManager = server.getHandlerPoolManager();
+    }
+    
+    /**
+     * Constructs a Router with a given base path, FlashServer instance, and HandlerPoolManager.
+     */
+    public Router(String basePath, FlashServer server, HandlerPoolManager poolManager) {
+        this.basePath = basePath.endsWith("/") ? basePath.substring(0, basePath.length() - 1) : basePath;
+        this.server = server;
+        this.poolManager = poolManager;
     }
 
     /**
      * Registers a request handler class with the server.
-     *
-     * @param handlerClass the class of the request handler to register
-     * @return the current Router instance for method chaining
-     * @throws RuntimeException if handler instantiation or registration fails
      */
-    public Router register(Class<? extends RequestHandler> handlerClass) {
+    public <T extends RequestHandler> Router register(Class<T> handlerClass) {
         String endpoint = getEndpoint(handlerClass);
         HttpMethod method = getMethod(handlerClass);
         String fullPath = basePath + endpoint;
-
-        RequestHandler handlerInstance = createHandlerInstance(handlerClass);
+    
+        // Get a properly typed handler pool
+        HandlerPool<T> handlerPool = poolManager.getOrCreatePool(handlerClass);
+        
+        // Acquire an instance with the correct type
+        T handlerInstance = handlerPool.acquire(null, null);
+        
         server.registerRoute(method, fullPath, handlerInstance);
+        
+        // Now we can safely release it with the correct type
+        handlerPool.release(handlerInstance);
+        
         return this;
-    }
-
-    /**
-     * Creates an instance of the given request handler class.
-     */
-    private RequestHandler createHandlerInstance(Class<? extends RequestHandler> handlerClass) {
-        try {
-            Constructor<? extends RequestHandler> constructor = handlerClass.getConstructor(Request.class, Response.class);
-            return constructor.newInstance(null, null);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to create handler instance for " + handlerClass.getName(), e);
-        }
     }
 
     /**

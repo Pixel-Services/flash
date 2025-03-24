@@ -10,6 +10,8 @@ import com.pixelservices.flash.components.http.routing.models.RouteEntry;
 import com.pixelservices.flash.components.http.routing.RouteRegistry;
 import com.pixelservices.flash.components.http.routing.Router;
 import com.pixelservices.flash.components.http.routing.models.SimpleHandler;
+import com.pixelservices.flash.components.http.routing.models.SimpleHandlerWrapper;
+import com.pixelservices.flash.components.http.pool.HandlerPoolManager;
 import com.pixelservices.flash.components.websocket.WebSocketHandler;
 import com.pixelservices.flash.components.websocket.WebSocketRequestHandler;
 import com.pixelservices.flash.components.websocket.WebSocketSession;
@@ -42,6 +44,9 @@ import java.util.concurrent.*;
  */
 public class FlashServer {
     private final ConcurrentHashMap<String, RequestHandler> routeHandlers = new ConcurrentHashMap<>();
+
+    // Add HandlerPoolManager as a field
+    private final HandlerPoolManager handlerPoolManager;
 
     // ------------------ Middleware ------------------ //
     private final List<MiddlewareEntry> globalMiddlewares = new CopyOnWriteArrayList<>();
@@ -81,16 +86,18 @@ public class FlashServer {
     public FlashServer(int port, FlashConfiguration config) {
         this.port = port;
         this.config = config;
+        
+        // Initialize the HandlerPoolManager with default values
+        this.handlerPoolManager = new HandlerPoolManager(5, 2, 20);
+        
         this.staticFileServer = new StaticFileServer(this);
         this.dynamicFileServer = new DynamicFileServer(this);
         this.httpRequestHandler = new HttpRequestHandler(this, routeRegistry);
-        this.webSocketRequestHandler = new WebSocketRequestHandler(this, webSocketHandlers, activeSessions, WEBSOCKET_BUFFER_POOL); // Initialize here
+        this.webSocketRequestHandler = new WebSocketRequestHandler(this, webSocketHandlers, activeSessions, WEBSOCKET_BUFFER_POOL);
     }
 
     public FlashServer(int port) {
         this(port, new FlashConfiguration());
-        this.httpRequestHandler = new HttpRequestHandler(this, routeRegistry);
-        this.webSocketRequestHandler = new WebSocketRequestHandler(this, webSocketHandlers, activeSessions, WEBSOCKET_BUFFER_POOL); // Initialize here as well
     }
 
     // ------------------ Server Startup ------------------ //
@@ -108,7 +115,7 @@ public class FlashServer {
                     "&#reset",
                     "      *      ",
                     "     **      ",
-                    "    ***       &#reset Started Mdd77successfully&#reset on port &#FF746C" + port + "&#reset",
+                    "    ***       &#reset Started &#00CC66successfully&#reset on port &#FF746C" + port + "&#reset",
                     "   *******    &#reset Startup time: &#FF746C" + elapsedTime + "&#reset ms",
                     "      ***     &#reset Serving " + routeRegistry.getLiteralRouteCount() + " literal routes, " + routeRegistry.getParameterizedRouteCount() + " parameterized routes, " + routeRegistry.getDynamicRouteCount() + " dynamic routes",
                     "      **     ",
@@ -178,8 +185,9 @@ public class FlashServer {
         return new Router(basePath, this);
     }
 
+    // Update the registerRoute methods to use HandlerPoolManager
     private void registerRoute(HttpMethod method, String fullPath, RequestHandler handler, HandlerType handlerType) {
-        final RouteEntry entry = new RouteEntry(method, fullPath, handler);
+        final RouteEntry entry = new RouteEntry(method, fullPath, handler, handlerType, handlerPoolManager);
         if (fullPath.endsWith("/*")) {
             routeRegistry.registerDynamicRoute(entry);
         } else if (entry.isParameterized()) {
@@ -190,7 +198,13 @@ public class FlashServer {
         handler.setHandlerType(handlerType);
         final String routingType = fullPath.endsWith("/*") ? "Dynamic" : (entry.isParameterized() ? "Parameterized" : "Literal");
         if (config.shouldLog(handlerType)) {
-            PrettyLogger.withEmoji(handlerType.name() + " " + routingType + " Route registered: [" + method + "] " + fullPath, handlerType.getEmoji());
+            String poolInfo = "";
+            if (entry.getHandlerPool() != null) {
+                poolInfo = " [Pool: " + entry.getHandlerPool().getTotalSize() + "/" + 
+                          entry.getHandlerPool().getHandlerClass().getSimpleName() + "]";
+            }
+            PrettyLogger.withEmoji(handlerType.name() + " " + routingType + " Route registered: [" + method + "] " + 
+                                fullPath + poolInfo, handlerType.getEmoji());
         }
         handler.setSpecification(new HandlerSpecification(handler, fullPath, method, handler.isEnforcedNonNullBody()));
         routeHandlers.put(method.name() + ":" + fullPath, handler);
@@ -201,11 +215,15 @@ public class FlashServer {
     }
 
     public void registerRoute(HttpMethod method, String fullPath, SimpleHandler handler) {
-        registerRoute(method, fullPath, wrapSimpleHandler(handler), HandlerType.SIMPLE);
+        SimpleHandlerWrapper wrappedHandler = new SimpleHandlerWrapper(null, null);
+        wrappedHandler.setSimpleHandler(handler);
+        registerRoute(method, fullPath, wrappedHandler, HandlerType.SIMPLE);
     }
 
     public void registerRoute(HttpMethod method, String fullPath, SimpleHandler handler, HandlerType handlerType) {
-        registerRoute(method, fullPath, wrapSimpleHandler(handler), handlerType);
+        SimpleHandlerWrapper wrappedHandler = new SimpleHandlerWrapper(null, null);
+        wrappedHandler.setSimpleHandler(handler);
+        registerRoute(method, fullPath, wrappedHandler, handlerType);
     }
 
     public void unregisterRoute(HttpMethod method, String fullPath) {
@@ -268,25 +286,58 @@ public class FlashServer {
     private void processReadData(ClientAttachment att) {
         ByteBuffer buf = att.buffer;
 
-        PrettyLogger.log("Buffer state before flip - Position: " + buf.position() + ", Limit: " + buf.limit() + ", Capacity: " + buf.capacity()); // Logging buffer state
-
         buf.flip();
-        PrettyLogger.log("Buffer state after flip - Position: " + buf.position() + ", Limit: " + buf.limit() + ", Capacity: " + buf.capacity()); // Logging buffer state
         try {
-            CharBuffer charBuffer = decodeBuffer(buf);
-            att.requestData.append(charBuffer);
-            buf.clear();
-            PrettyLogger.log("Buffer state after clear - Position: " + buf.position() + ", Limit: " + buf.limit() + ", Capacity: " + buf.capacity()); // Logging buffer state
-
-
-            String fullRequestData = att.requestData.toString();
-            if (fullRequestData.contains("\r\n\r\n")) {
-                handleRequest(att, fullRequestData);
+            // Use a more efficient approach for checking if we have a complete request
+            if (isCompleteRequest(buf, att.requestData)) {
+                handleRequest(att, att.requestData.toString());
             } else {
-                startRead(att); // keep reading
+                // Continue reading if we don't have a complete request yet
+                buf.clear();
+                startRead(att);
             }
         } catch (Exception ex) {
             handleDecodingError(ex, att);
+        }
+    }
+
+    private boolean isCompleteRequest(ByteBuffer buffer, StringBuilder requestData) {
+        try {
+            CharBuffer charBuffer = decodeBuffer(buffer);
+            requestData.append(charBuffer);
+            
+            // Fast check for HTTP request completion
+            String data = requestData.toString();
+            
+            // Check for end of headers
+            int headersEnd = data.indexOf("\r\n\r\n");
+            if (headersEnd == -1) {
+                return false;
+            }
+            
+            // For requests with a body, check Content-Length
+            String contentLengthHeader = "Content-Length: ";
+            int contentLengthPos = data.indexOf(contentLengthHeader);
+            if (contentLengthPos != -1) {
+                int valueStart = contentLengthPos + contentLengthHeader.length();
+                int valueEnd = data.indexOf("\r\n", valueStart);
+                if (valueEnd != -1) {
+                    try {
+                        int contentLength = Integer.parseInt(data.substring(valueStart, valueEnd).trim());
+                        int bodyStart = headersEnd + 4;
+                        int bodyLength = data.length() - bodyStart;
+                        return bodyLength >= contentLength;
+                    } catch (NumberFormatException e) {
+                        // If we can't parse content length, assume request is complete
+                        return true;
+                    }
+                }
+            }
+            
+            // If no Content-Length header, assume the request is complete after headers
+            return true;
+        } catch (CharacterCodingException e) {
+            return false;
         }
     }
 
@@ -295,9 +346,7 @@ public class FlashServer {
         decoder.reset();
 
         ByteBuffer duplicateBuffer = buf.duplicate();
-        PrettyLogger.log("Duplicate Buffer state before decode - Position: " + duplicateBuffer.position() + ", Limit: " + duplicateBuffer.limit() + ", Capacity: " + duplicateBuffer.capacity()); // Logging buffer state
         CharBuffer decodedCharBuffer = decoder.decode(duplicateBuffer);
-        PrettyLogger.log("Duplicate Buffer state after decode - Position: " + duplicateBuffer.position() + ", Limit: " + duplicateBuffer.limit() + ", Capacity: " + duplicateBuffer.capacity()); // Logging buffer state
         return decodedCharBuffer;
     }
 
@@ -459,4 +508,9 @@ public class FlashServer {
     // ------------------ Helper Classes ------------------ //
 
     private record MiddlewareEntry(Middleware middleware, String pathPrefix){}
+
+    // Add a method to access the HandlerPoolManager
+    public HandlerPoolManager getHandlerPoolManager() {
+        return handlerPoolManager;
+    }
 }

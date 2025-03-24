@@ -4,6 +4,9 @@ target/
 !**/src/test/**/target/
 /src/main/java/com/pixelservices/flash/test/
 /src/main/java/com/pixelservices/flash/Main.java
+/react-app/
+/.idea/
+/src/main/resources/frontend/
 
 
 ### IntelliJ IDEA ###
