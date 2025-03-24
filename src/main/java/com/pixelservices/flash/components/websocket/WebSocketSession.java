@@ -132,7 +132,6 @@ public class WebSocketSession {
                 try {
                     Thread.sleep(100);
                     channel.close();
-                    PrettyLogger.log("WebSocket session closed with status: " + statusCode);
                 } catch (InterruptedException | IOException e) {
                     PrettyLogger.error("Error while closing WebSocket session: " + e.getMessage());
                 }
