@@ -46,8 +46,8 @@
         <!-- Logger -->
         <dependency>
             <groupId>com.pixelservices</groupId>
-            <artifactId>PTK</artifactId>
-            <version>1.3.1</version>
+            <artifactId>ptkl</artifactId>
+            <version>1.3.2</version>
         </dependency>
 
         <!-- Testing -->
