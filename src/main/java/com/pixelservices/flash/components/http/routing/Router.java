@@ -46,15 +46,11 @@ public class Router {
         HttpMethod method = getMethod(handlerClass);
         String fullPath = basePath + endpoint;
     
-        // Get a properly typed handler pool
         HandlerPool<T> handlerPool = poolManager.getOrCreatePool(handlerClass);
-        
-        // Acquire an instance with the correct type
         T handlerInstance = handlerPool.acquire(null, null);
         
         server.registerRoute(method, fullPath, handlerInstance);
         
-        // Now we can safely release it with the correct type
         handlerPool.release(handlerInstance);
         
         return this;

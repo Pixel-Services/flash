@@ -15,7 +15,7 @@ public class TestHandler extends BaseHandler {
     }
 
     @Override
-    public Object handle() {
+    public Object resolve() {
         return "Your email is: " + email.getString();
     }
 
