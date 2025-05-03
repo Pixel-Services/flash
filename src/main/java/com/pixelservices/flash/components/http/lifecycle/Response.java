@@ -200,4 +200,97 @@ public class Response {
                 ", finalized=" + finalized +
                 '}';
     }
+
+    /**
+     * Gets just the header portion of the response as a ByteBuffer.
+     *
+     * @return the headers as a ByteBuffer
+     */
+    /*
+    public ByteBuffer getHeaderBuffer() {
+        StringBuilder headerBuilder = new StringBuilder();
+        headerBuilder.append("HTTP/1.1 ")
+                .append(statusCode)
+                .append(" ")
+                .append(getStatusMessage(statusCode))
+                .append("\r\n");
+
+        headers.putIfAbsent("Content-Type", contentType);
+
+        headers.forEach((key, value) -> headerBuilder.append(key).append(": ").append(value).append("\r\n"));
+        headerBuilder.append("\r\n"); // End of headers
+
+        byte[] headerBytes = headerBuilder.toString().getBytes(StandardCharsets.UTF_8);
+        ByteBuffer buffer = ByteBuffer.allocate(headerBytes.length);
+        buffer.put(headerBytes);
+        buffer.flip();
+        return buffer;
+    }*/
+
+    /**
+     * Gets the body as a byte array.
+     * 
+     * @return the body as a byte array
+     */
+    public byte[] getBodyBytes() {
+        if (body == null) {
+            return new byte[0];
+        }
+        
+        try {
+            return serializeBody(body, contentType);
+        } catch (ClassCastException e) {
+            throw new UnsupportedOperationException("Invalid body type for content type: " + contentType, e);
+        }
+    }
+
+    /**
+     * Gets the content type of the response.
+     * 
+     * @return the content type
+     */
+    public String getContentType() {
+        return contentType;
+    }
+
+    /**
+     * Gets just the header portion of the response as a byte array.
+     * This is useful for chunked sending of large responses.
+     *
+     * @return the headers as a byte array
+     */
+    public byte[] getHeaderBytes() {
+        StringBuilder headerBuilder = new StringBuilder();
+        headerBuilder.append("HTTP/1.1 ")
+                .append(statusCode)
+                .append(" ")
+                .append(getStatusMessage(statusCode))
+                .append("\r\n");
+
+        // Don't add Content-Type if it's null
+        if (contentType != null) {
+            headers.putIfAbsent("Content-Type", contentType);
+        }
+
+        // Add all headers except those that are null
+        headers.entrySet().stream()
+               .filter(entry -> entry.getValue() != null)
+               .forEach(entry -> 
+                   headerBuilder.append(entry.getKey())
+                               .append(": ")
+                               .append(entry.getValue())
+                               .append("\r\n"));
+        
+        headerBuilder.append("\r\n"); // End of headers
+        return headerBuilder.toString().getBytes(StandardCharsets.UTF_8);
+    }
+    
+    /**
+     * Gets a ByteBuffer containing just the headers.
+     * 
+     * @return ByteBuffer with headers
+     */
+    public ByteBuffer getHeaderBuffer() {
+        return ByteBuffer.wrap(getHeaderBytes());
+    }
 }

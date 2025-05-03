@@ -208,45 +208,42 @@ public class WebSocketRequestHandler {
 
         byte[] payload = new byte[(int) actualPayloadLength];
         buffer.get(payload);
-
         if (masked) {
             for (int i = 0; i < payload.length; i++) {
-                payload[i] = (byte) (payload[i] ^ maskingKey[i % 4]);
+                payload[i] ^= maskingKey[i % 4];
             }
         }
 
         switch (opcode) {
-            case 0x0, 0x2, 0xA:
-                break;
-            case 0x1:
+            case 0x1: // Text frame
                 String message = new String(payload, StandardCharsets.UTF_8);
-                try {
-                    handler.onMessage(session, message);
-                } catch (Exception e) {
-                    PrettyLogger.withEmoji("Error in WebSocket message handler: " + e.getMessage(), "❌");
-                    handler.onError(session, e);
-                }
+                handler.onMessage(session, message);
                 break;
-            case 0x8:
-                int statusCode = 1000;
+            case 0x2: // Binary frame
+                handler.onMessage(session, payload);
+                break;
+            case 0x8: // Close frame
+                int code = 1000;
                 String reason = "";
                 if (payload.length >= 2) {
-                    statusCode = ((payload[0] & 0xFF) << 8) | (payload[1] & 0xFF);
+                    code = ((payload[0] & 0xFF) << 8) | (payload[1] & 0xFF);
                     if (payload.length > 2) {
                         reason = new String(payload, 2, payload.length - 2, StandardCharsets.UTF_8);
                     }
                 }
-                handler.onClose(session, statusCode, reason);
-                session.close(statusCode, "Acknowledged");
+                handler.onClose(session, code, reason);
                 removeSession(session);
                 break;
-            case 0x9:
+            case 0x9: // Ping
+                // Respond with Pong
                 sendPong(session, payload);
                 break;
-            default:
-                session.close(1002, "Protocol error");
-                removeSession(session);
+            case 0xA: // Pong
+                // Ignore
                 break;
+            default:
+                PrettyLogger.withEmoji("Unsupported WebSocket opcode: " + opcode, "⚠️");
+                session.close(1003, "Unsupported data");
         }
     }
 

@@ -102,6 +102,40 @@ public class WebSocketSession {
         });
     }
 
+    public void sendBinaryMessage(byte[] data) {
+        int dataLength = data.length;
+        ByteBuffer buffer;
+        if (dataLength <= 125) {
+            buffer = ByteBuffer.allocate(2 + dataLength);
+            buffer.put((byte) 0x82); // FIN + binary opcode
+            buffer.put((byte) dataLength);
+        } else if (dataLength <= 65535) {
+            buffer = ByteBuffer.allocate(4 + dataLength);
+            buffer.put((byte) 0x82);
+            buffer.put((byte) 126);
+            buffer.putShort((short) dataLength);
+        } else {
+            buffer = ByteBuffer.allocate(10 + dataLength);
+            buffer.put((byte) 0x82);
+            buffer.put((byte) 127);
+            buffer.putLong(dataLength);
+        }
+        buffer.put(data);
+        buffer.flip();
+        channel.write(buffer, buffer, new CompletionHandler<>() {
+            @Override
+            public void completed(Integer result, ByteBuffer buf) {
+                if (buf.hasRemaining()) {
+                    channel.write(buf, buf, this);
+                }
+            }
+            @Override
+            public void failed(Throwable exc, ByteBuffer buf) {
+                PrettyLogger.error("Failed to send WebSocket binary message: " + exc.getMessage());
+            }
+        });
+    }
+
     /**
      * Closes the WebSocket connection with the specified status code and reason
      *

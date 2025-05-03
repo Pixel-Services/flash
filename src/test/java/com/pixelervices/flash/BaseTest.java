@@ -5,8 +5,8 @@ import com.pixelervices.flash.handlers.ReqBodyTestHandler;
 import com.pixelervices.flash.handlers.ReqParamTestHandler;
 import com.pixelervices.flash.handlers.TestHandler;
 import com.pixelservices.flash.components.FlashServer;
-import com.pixelservices.flash.models.WebSocketHandler;
-import com.pixelservices.flash.models.WebSocketSession;
+import com.pixelservices.flash.components.websocket.WebSocketHandler;
+import com.pixelservices.flash.components.websocket.WebSocketSession;
 import com.pixelservices.flash.swagger.OpenAPIConfiguration;
 import com.pixelservices.flash.swagger.OpenAPIUITemplate;
 import org.junit.BeforeClass;
@@ -38,23 +38,35 @@ public abstract class BaseTest {
             server.ws("/ws", new WebSocketHandler() {
                 @Override
                 public void onOpen(WebSocketSession session) {
-                    //System.out.println("WebSocket connection opened");
+                    // WebSocket connection opened
                 }
 
                 @Override
                 public void onClose(WebSocketSession session, int statusCode, String reason) {
-                    //System.out.println("WebSocket connection closed");
+                    // WebSocket connection closed
                 }
 
                 @Override
                 public void onMessage(WebSocketSession session, String message) {
-                    //System.out.println("Received message: " + message);
+                    System.out.println("Received string message: " + message);
                     String reversedMessage = new StringBuilder(message).reverse().toString();
                     session.sendMessage(reversedMessage);
                 }
 
                 @Override
-                public void onError(WebSocketSession session, Throwable error) {}
+                public void onMessage(WebSocketSession session, byte[] message) {
+                    System.out.println("Received binary message: " + message.length + " bytes");
+                    byte[] reversedMessage = new byte[message.length];
+                    for (int i = 0; i < message.length; i++) {
+                        reversedMessage[i] = message[message.length - 1 - i];
+                    }
+                    session.sendBinaryMessage(reversedMessage);
+                }
+
+                @Override
+                public void onError(WebSocketSession session, Throwable error) {
+                    // Handle WebSocket error
+                }
             });
 
             Thread serverThread = new Thread(() -> {

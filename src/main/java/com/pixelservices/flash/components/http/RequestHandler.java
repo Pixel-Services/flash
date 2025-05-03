@@ -38,6 +38,10 @@ public abstract class RequestHandler {
         }
     }
 
+    public String getHandlerName() {
+        return this.getClass().getSimpleName();
+    }
+
     /**
      * Check if the enforceNonNullBody flag is set in the RouteInfo annotation
      * @return True if the enforceNonNullBody flag is set, false otherwise

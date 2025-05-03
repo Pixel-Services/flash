@@ -67,7 +67,7 @@ public class FlashServer {
 
     // ------------------ Off-Heap Buffer Management ------------------ //
     public static final int BUFFER_POOL_SIZE = 4096;
-    public static final int BUFFER_SIZE = 16384;
+    public static final int BUFFER_SIZE = 262144; // 256KB
     public static final OffHeapBufferPool REQUEST_BUFFER_POOL = new OffHeapBufferPool(BUFFER_POOL_SIZE, BUFFER_SIZE);
 
     // For WebSocket frames (64KB per buffer)
@@ -88,7 +88,7 @@ public class FlashServer {
         this.config = config;
         
         // Initialize the HandlerPoolManager with default values
-        this.handlerPoolManager = new HandlerPoolManager(5, 2, 20);
+        this.handlerPoolManager = new HandlerPoolManager(this, 5, 2, 20);
         
         this.staticFileServer = new StaticFileServer(this);
         this.dynamicFileServer = new DynamicFileServer(this);
@@ -185,7 +185,6 @@ public class FlashServer {
         return new Router(basePath, this);
     }
 
-    // Update the registerRoute methods to use HandlerPoolManager
     private void registerRoute(HttpMethod method, String fullPath, RequestHandler handler, HandlerType handlerType) {
         final RouteEntry entry = new RouteEntry(method, fullPath, handler, handlerType, handlerPoolManager);
         if (fullPath.endsWith("/*")) {
@@ -201,7 +200,7 @@ public class FlashServer {
             String poolInfo = "";
             if (entry.getHandlerPool() != null) {
                 poolInfo = " [Pool: " + entry.getHandlerPool().getTotalSize() + "/" + 
-                          entry.getHandlerPool().getHandlerClass().getSimpleName() + "]";
+                          entry.getHandlerPool().getHandlerClass() + "]";
             }
             PrettyLogger.withEmoji(handlerType.name() + " " + routingType + " Route registered: [" + method + "] " + 
                                 fullPath + poolInfo, handlerType.getEmoji());
@@ -243,15 +242,6 @@ public class FlashServer {
 
     public void redirect(String fromPath, String toPath) {
         redirect(fromPath, toPath, HttpMethod.GET);
-    }
-
-    private RequestHandler wrapSimpleHandler(SimpleHandler handler) {
-        return new RequestHandler(null, null) {
-            @Override
-            public Object handle() {
-                return handler.handle(this.req, this.res);
-            }
-        };
     }
 
     // ------------------ Request Handling ------------------ //

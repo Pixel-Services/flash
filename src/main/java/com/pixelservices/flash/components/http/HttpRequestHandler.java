@@ -19,6 +19,7 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Map;
 
@@ -60,7 +61,12 @@ public class HttpRequestHandler {
             validateHandlerResources(handler);
             final Object responseBody = handler.handle();
             response.body(convertToResponseBody(responseBody));
-            sendResponse(response, clientChannel);
+            
+            if (isLargeFile(response)) {
+                sendLargeFileResponse(response, clientChannel);
+            } else {
+                sendResponse(response, clientChannel);
+            }
             
         } catch (Exception e) {
             new RequestExceptionHandler(clientChannel, e).handle();
@@ -77,8 +83,89 @@ public class HttpRequestHandler {
             
             if (!att.isWebSocket) {
                 FlashServer.REQUEST_BUFFER_POOL.release(att.buffer);
+                // Note: We don't close the socket here for large responses
+                // It will be closed after the entire response is sent
+            }
+        }
+    }
+    
+    /**
+     * Sends a large response in chunks to avoid memory issues.
+     * This is particularly useful for large JS bundles.
+     */
+    private void sendLargeResponse(Response response, AsynchronousSocketChannel clientChannel) {
+        response.finalizeResponse();
+        
+        ByteBuffer headerBuffer = response.getHeaderBuffer();
+        
+        clientChannel.write(headerBuffer, new SendContext(response, clientChannel, 0), new CompletionHandler<>() {
+            @Override
+            public void completed(Integer bytesWritten, SendContext context) {
+                if (headerBuffer.hasRemaining()) {
+                    // Continue sending headers if not complete
+                    clientChannel.write(headerBuffer, context, this);
+                } else {
+                    // Headers sent, now send body in chunks
+                    sendBodyChunk(context);
+                }
+            }
+            
+            @Override
+            public void failed(Throwable exc, SendContext context) {
+                PrettyLogger.withEmoji("Error sending large response headers: " + exc.getMessage(), "⚠️");
                 FlashServer.closeSocket(clientChannel);
             }
+        });
+    }
+    
+    /**
+     * Sends a chunk of the response body.
+     */
+    private void sendBodyChunk(SendContext context) {
+        byte[] body = context.response.getBodyBytes();
+        if (body == null || body.length == 0 || context.position >= body.length) {
+            // All done, close the connection
+            FlashServer.closeSocket(context.channel);
+            return;
+        }
+        
+        int chunkSize = Math.min(FlashServer.BUFFER_SIZE, body.length - context.position);
+        ByteBuffer chunk = ByteBuffer.allocate(chunkSize);
+        chunk.put(body, context.position, chunkSize);
+        chunk.flip();
+        
+        context.position += chunkSize;
+        
+        context.channel.write(chunk, context, new CompletionHandler<>() {
+            @Override
+            public void completed(Integer bytesWritten, SendContext updatedContext) {
+                if (chunk.hasRemaining()) {
+                    context.channel.write(chunk, updatedContext, this);
+                } else {
+                    sendBodyChunk(updatedContext);
+                }
+            }
+            
+            @Override
+            public void failed(Throwable exc, SendContext updatedContext) {
+                PrettyLogger.withEmoji("Error sending large response body chunk: " + exc.getMessage(), "⚠️");
+                FlashServer.closeSocket(context.channel);
+            }
+        });
+    }
+    
+    /**
+     * Context class to track state during chunked sending.
+     */
+    private static class SendContext {
+        final Response response;
+        final AsynchronousSocketChannel channel;
+        int position;
+        
+        SendContext(Response response, AsynchronousSocketChannel channel, int position) {
+            this.response = response;
+            this.channel = channel;
+            this.position = position;
         }
     }
 
@@ -95,6 +182,14 @@ public class HttpRequestHandler {
 
     private void sendResponse(Response response, AsynchronousSocketChannel clientChannel) {
         response.finalizeResponse();
+        
+        // Check if this is a large JavaScript file that needs special handling
+        if (isLargeFile(response)) {
+            sendLargeFileResponse(response, clientChannel);
+            return;
+        }
+        
+        // Regular response handling
         final ByteBuffer responseBuffer = response.getSerialized();
         clientChannel.write(responseBuffer, responseBuffer, new CompletionHandler<>() {
             @Override
@@ -107,6 +202,124 @@ public class HttpRequestHandler {
                 FlashServer.closeSocket(clientChannel);
             }
         });
+    }
+    private boolean isLargeFile(Response response) {
+        byte[] body = response.getSerializedBody();
+        return body.length > 1024 * 1024;
+    }
+
+    /**
+     * Sends a large file response using chunked transfer to avoid memory issues
+     */
+    private void sendLargeFileResponse(Response response, AsynchronousSocketChannel clientChannel) {
+        response.header("Content-Length", null);
+        response.finalizeResponse();
+        
+        response.header("Transfer-Encoding", "chunked");
+        
+        byte[] headerBytes = response.getHeaderBytes();
+        byte[] bodyBytes = response.getSerializedBody();
+        
+        // First send the headers
+        ByteBuffer headerBuffer = ByteBuffer.wrap(headerBytes);
+        
+        clientChannel.write(headerBuffer, new ChunkedContext(bodyBytes, clientChannel, 0), 
+            new CompletionHandler<Integer, ChunkedContext>() {
+                @Override
+                public void completed(Integer bytesWritten, ChunkedContext context) {
+                    if (headerBuffer.hasRemaining()) {
+                        // Continue sending headers
+                        clientChannel.write(headerBuffer, context, this);
+                    } else {
+                        // Headers sent, now send body in chunks
+                        sendNextChunk(context);
+                    }
+                }
+                
+                @Override
+                public void failed(Throwable exc, ChunkedContext context) {
+                    PrettyLogger.withEmoji("Error sending large file headers: " + exc.getMessage(), "⚠️");
+                    FlashServer.closeSocket(clientChannel);
+                }
+            });
+    }
+
+    /**
+     * Sends the next chunk of a large file
+     */
+    private void sendNextChunk(ChunkedContext context) {
+        if (context.position >= context.bodyBytes.length) {
+            // Send the final chunk (0-length chunk indicates end of transfer)
+            ByteBuffer finalChunk = ByteBuffer.wrap("0\r\n\r\n".getBytes(StandardCharsets.UTF_8));
+            context.channel.write(finalChunk, null, new CompletionHandler<Integer, Void>() {
+                @Override
+                public void completed(Integer bytesWritten, Void attachment) {
+                    if (finalChunk.hasRemaining()) {
+                        context.channel.write(finalChunk, null, this);
+                    } else {
+                        // All done, close the connection
+                        FlashServer.closeSocket(context.channel);
+                    }
+                }
+                
+                @Override
+                public void failed(Throwable exc, Void attachment) {
+                    PrettyLogger.withEmoji("Error sending final chunk: " + exc.getMessage(), "⚠️");
+                    FlashServer.closeSocket(context.channel);
+                }
+            });
+            return;
+        }
+        
+        // Calculate chunk size (max 64KB per chunk)
+        int chunkSize = Math.min(65536, context.bodyBytes.length - context.position);
+        
+        // Format the chunk according to HTTP chunked encoding (size in hex + CRLF + data + CRLF)
+        String chunkHeader = Integer.toHexString(chunkSize) + "\r\n";
+        ByteBuffer chunk = ByteBuffer.allocate(chunkHeader.length() + chunkSize + 2);
+        chunk.put(chunkHeader.getBytes(StandardCharsets.UTF_8));
+        chunk.put(context.bodyBytes, context.position, chunkSize);
+        chunk.put("\r\n".getBytes(StandardCharsets.UTF_8));
+        chunk.flip();
+        
+        // Update position for next chunk
+        int newPosition = context.position + chunkSize;
+        ChunkedContext newContext = new ChunkedContext(context.bodyBytes, context.channel, newPosition);
+        
+        // Send this chunk
+        context.channel.write(chunk, newContext, new CompletionHandler<Integer, ChunkedContext>() {
+            @Override
+            public void completed(Integer bytesWritten, ChunkedContext updatedContext) {
+                if (chunk.hasRemaining()) {
+                    // Continue sending this chunk
+                    context.channel.write(chunk, updatedContext, this);
+                } else {
+                    // This chunk is done, send next chunk
+                    sendNextChunk(updatedContext);
+                }
+            }
+            
+            @Override
+            public void failed(Throwable exc, ChunkedContext updatedContext) {
+                PrettyLogger.withEmoji("Error sending chunk: " + exc.getMessage(), "⚠️");
+                FlashServer.closeSocket(context.channel);
+            }
+        });
+    }
+
+    /**
+     * Context class to track state during chunked sending
+     */
+    private static class ChunkedContext {
+        final byte[] bodyBytes;
+        final AsynchronousSocketChannel channel;
+        final int position;
+        
+        ChunkedContext(byte[] bodyBytes, AsynchronousSocketChannel channel, int position) {
+            this.bodyBytes = bodyBytes;
+            this.channel = channel;
+            this.position = position;
+        }
     }
 
     private void validateHandlerResources(RequestHandler handler) {

@@ -204,4 +204,13 @@ public class HandlerPool<T extends RequestHandler> {
         int total = hits + missCount.get();
         return total > 0 ? (double) hits / total : 1.0;
     }
+
+    public String getHandlerName() {
+        try {
+            T handler = createHandlerInstance();
+            return handler.getHandlerName();
+        } catch (Exception e) {
+            return handlerClass.getName();
+        }
+    }
 }
