@@ -78,8 +78,8 @@ public class FlashServer {
     private static final ThreadLocal<CharsetDecoder> UTF8_DECODER = ThreadLocal.withInitial(StandardCharsets.UTF_8::newDecoder);
 
     private final RouteRegistry routeRegistry = new RouteRegistry();
-    private HttpRequestHandler httpRequestHandler;
-    private WebSocketRequestHandler webSocketRequestHandler;
+    private final HttpRequestHandler httpRequestHandler;
+    private final WebSocketRequestHandler webSocketRequestHandler;
 
     // ------------------ Constructors ------------------ //
 
@@ -336,8 +336,7 @@ public class FlashServer {
         decoder.reset();
 
         ByteBuffer duplicateBuffer = buf.duplicate();
-        CharBuffer decodedCharBuffer = decoder.decode(duplicateBuffer);
-        return decodedCharBuffer;
+        return decoder.decode(duplicateBuffer);
     }
 
     private void handleRequest(ClientAttachment att, String fullRequestData) {
@@ -440,7 +439,11 @@ public class FlashServer {
     }
 
     public void serveDynamic(String endpoint, DynamicFileServerConfiguration config) {
-        dynamicFileServer.serve(endpoint, config);
+        dynamicFileServer.serve(endpoint, config, getClass());
+    }
+
+    public void serveDynamic(String endpoint, DynamicFileServerConfiguration config, Class<?> contextClass) {
+        dynamicFileServer.serve(endpoint, config, contextClass);
     }
 
     public void ws(String endpoint, WebSocketHandler handler) {
