@@ -101,11 +101,97 @@ public class FlashServer {
     }
 
     // ------------------ Server Startup ------------------ //
+    
+    private volatile boolean isRunning = false;
+    private Thread serverThread;
+    private final Object serverLock = new Object();
 
     /**
      * Starts the server and binds to the specified port.
+     * This method is non-blocking and returns a thread that can be used to wait for the server to stop.
+     * 
+     * @return The thread running the server
      */
-    public void start() {
+    public Thread start() {
+        synchronized (serverLock) {
+            if (isRunning) {
+                throw new IllegalStateException("Server is already running");
+            }
+            
+            serverThread = new Thread(() -> {
+                try {
+                    startServerInternal();
+                } catch (Exception e) {
+                    PrettyLogger.withEmoji("Server error: " + e.getMessage(), "❌");
+                }
+            }, "FlashServer-" + port);
+            
+            serverThread.setDaemon(false);
+            isRunning = true;
+            serverThread.start();
+            
+            return serverThread;
+        }
+    }
+    
+    /**
+     * Stops the server safely.
+     * This method blocks until the server has fully stopped.
+     */
+    public void stop() {
+        synchronized (serverLock) {
+            if (!isRunning || serverThread == null) {
+                return;
+            }
+            
+            isRunning = false;
+            
+            try {
+                // Close the server socket channel
+                if (serverSocketChannel != null && serverSocketChannel.isOpen()) {
+                    serverSocketChannel.close();
+                }
+                
+                // Shutdown the handler pool manager
+                if (handlerPoolManager != null) {
+                    handlerPoolManager.shutdown();
+                }
+                
+                // Wait for the server thread to finish
+                if (serverThread != null && serverThread.isAlive()) {
+                    serverThread.join(5000); // Wait up to 5 seconds
+                    if (serverThread.isAlive()) {
+                        PrettyLogger.withEmoji("Server thread did not stop gracefully, forcing shutdown", "⚠️");
+                        serverThread.interrupt();
+                    }
+                }
+                
+                PrettyLogger.withEmoji("Server stopped successfully on port " + port, "🛑");
+                
+            } catch (Exception e) {
+                PrettyLogger.withEmoji("Error stopping server: " + e.getMessage(), "❌");
+            } finally {
+                serverThread = null;
+            }
+        }
+    }
+    
+    /**
+     * Checks if the server is currently running.
+     * 
+     * @return true if the server is running, false otherwise
+     */
+    public boolean isRunning() {
+        synchronized (serverLock) {
+            return isRunning && serverThread != null && serverThread.isAlive();
+        }
+    }
+
+    /**
+     * Internal method that actually starts the server.
+     * This runs on the server thread.
+     */
+    private void startServerInternal() {
         final long startTime = System.currentTimeMillis();
         try {
             serverSocketChannel = AsynchronousServerSocketChannel.open().bind(new InetSocketAddress(port));
@@ -123,11 +209,20 @@ public class FlashServer {
                     "&#reset"
             };
             for (String line : flashPixelArt) {
-                PrettyLogger.log("&#FFEE8C" + line);
+                //PrettyLogger.log("&#FFEE8C" + line);
             }
-            // Keep the server alive indefinitely.
-            Thread.sleep(Long.MAX_VALUE);
-        } catch (IOException | InterruptedException e) {
+            
+            // Keep the server alive until stopped
+            while (isRunning) {
+                try {
+                    Thread.sleep(100); // Check every 100ms
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+            
+        } catch (IOException e) {
             PrettyLogger.withEmoji("Error starting server: " + e.getMessage(), "❌");
             throw new ServerStartupException("Error starting server", e);
         }

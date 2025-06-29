@@ -26,7 +26,7 @@ public class RouteRegistry {
     }
 
     public void registerDynamicRoute(RouteEntry entry) {
-        dynamicRoutePrefixTrie.insert(entry);
+        dynamicRoutePrefixTrie.insert(entry, entry);
     }
 
     public RouteMatch resolveRoute(HttpMethod method, String path) {

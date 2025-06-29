@@ -1,83 +1,159 @@
 package com.pixelservices.flash.utils;
 
-import com.pixelservices.logger.Logger;
-import com.pixelservices.logger.LoggerFactory;
-import com.pixelservices.logger.events.LogEvent;
-import com.pixelservices.logger.formatter.LogFormatter;
-
+import java.io.PrintStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * PrettyLogger is a utility class for logging messages with support for hex colors and emojis.
+ * PrettyLogger is a self-contained utility class for logging messages with support for hex colors and emojis.
+ * This implementation doesn't interfere with the host application's logging system.
  */
 public class PrettyLogger {
 
-    static {
-        LoggerFactory.setFormatter(new CustomLogFormatter());
-    }
-
-    public static Logger logger = LoggerFactory.getLogger("Flash");
-
+    private static final PrintStream OUT = System.out;
+    private static final PrintStream ERR = System.err;
+    
     // ANSI escape codes for colored output
     private static final String RESET = "\u001B[0m";
     private static final Pattern HEX_COLOR_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6}|reset)(.*?)(?=&#[A-Fa-f0-9]{6}|&#reset|$)");
+    
+    // Log level enum
+    public enum Level {
+        INFO, WARN, ERROR
+    }
+    
+    // Configuration
+    private static boolean colorsEnabled = true;
+    private static boolean timestampsEnabled = true;
+    private static String prefix = "Flash";
 
     /**
-     * Logs a message with optional hex color codes and emojis.
+     * Enables or disables ANSI color output.
+     * 
+     * @param enabled true to enable colors, false to disable
+     */
+    public static void setColorsEnabled(boolean enabled) {
+        colorsEnabled = enabled;
+    }
+
+    /**
+     * Enables or disables timestamp output.
+     * 
+     * @param enabled true to enable timestamps, false to disable
+     */
+    public static void setTimestampsEnabled(boolean enabled) {
+        timestampsEnabled = enabled;
+    }
+
+    /**
+     * Sets the logger prefix.
+     * 
+     * @param newPrefix the new prefix to use
+     */
+    public static void setPrefix(String newPrefix) {
+        prefix = newPrefix;
+    }
+
+    /**
+     * Logs a message with INFO level.
      *
-     * @param message the message to log, with optional {@code "<#RRGGBB>"} for colors and emojis
+     * @param message the message to log, with optional {@code "&#RRGGBB"} for colors
      */
     public static void log(String message) {
-        String coloredMessage = applyHexColors(message+"&#reset");
-        logger.info(coloredMessage);
+        log(message, Level.INFO);
     }
 
     /**
-     * Logs a message with optional hex color codes and emojis.
+     * Logs a message with WARN level.
      *
-     * @param message the message to log, with optional {@code "<#RRGGBB>"} for colors and emojis
+     * @param message the message to log, with optional {@code "&#RRGGBB"} for colors
      */
     public static void warn(String message) {
-        String coloredMessage = applyHexColors(message+"&#reset");
-        logger.warn(coloredMessage);
-    }
-
-    public static void error(String message) {
-        String coloredMessage = applyHexColors(message+"&#reset");
-        logger.error(coloredMessage);
+        log(message, Level.WARN);
     }
 
     /**
-     * Logs a message with an emoji and optional hex color codes.
+     * Logs a message with ERROR level.
      *
-     * @param message the message to log
-     * @param emoji the emoji to prepend to the message
-     * @param logType the type of log
+     * @param message the message to log, with optional {@code "&#RRGGBB"} for colors
      */
-    public static void withEmoji(String message, String emoji, LogType logType) {
-        String coloredMessage = applyHexColors(message+"&#reset");
-        switch (logType) {
-            case INFO:
-                logger.info(emoji + " " + coloredMessage);
-                break;
-            case WARN:
-                logger.warn(emoji + " " + coloredMessage);
-                break;
-            case ERROR:
-                logger.error(emoji + " " + coloredMessage);
-                break;
-        }
+    public static void error(String message) {
+        log(message, Level.ERROR);
     }
 
     /**
-     * Logs a message with an emoji and optional hex color codes.
+     * Logs a message with an emoji and INFO level.
      *
      * @param message the message to log
      * @param emoji the emoji to prepend to the message
      */
     public static void withEmoji(String message, String emoji) {
-        withEmoji(message, emoji, LogType.INFO);
+        withEmoji(message, emoji, Level.INFO);
+    }
+
+    /**
+     * Logs a message with an emoji and specified level.
+     *
+     * @param message the message to log
+     * @param emoji the emoji to prepend to the message
+     * @param level the log level
+     */
+    public static void withEmoji(String message, String emoji, Level level) {
+        String fullMessage = emoji + " " + message;
+        log(fullMessage, level);
+    }
+
+    /**
+     * Internal logging method.
+     *
+     * @param message the message to log
+     * @param level the log level
+     */
+    private static void log(String message, Level level) {
+        String formattedMessage = formatMessage(message, level);
+        
+        PrintStream stream = (level == Level.ERROR) ? ERR : OUT;
+        stream.println(formattedMessage);
+    }
+
+    /**
+     * Formats a message with timestamp, prefix, level, and colors.
+     *
+     * @param message the original message
+     * @param level the log level
+     * @return the formatted message
+     */
+    private static String formatMessage(String message, Level level) {
+        StringBuilder formatted = new StringBuilder();
+        
+        // Add timestamp if enabled
+        if (timestampsEnabled) {
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+            formatted.append("[").append(timestamp).append("] ");
+        }
+        
+        // Add prefix
+        formatted.append(prefix).append(" ");
+        
+        // Add thread name
+        String threadName = Thread.currentThread().getName();
+        formatted.append("[").append(threadName).append("] ");
+        
+        // Add level
+        String levelStr = String.format("%-5s", level.name());
+        formatted.append(levelStr).append(": ");
+        
+        // Add the actual message with colors if enabled
+        if (colorsEnabled) {
+            formatted.append(applyHexColors(message));
+        } else {
+            // Strip colors if disabled
+            formatted.append(stripColors(message));
+        }
+        
+        return formatted.toString();
     }
 
     /**
@@ -108,6 +184,15 @@ public class PrettyLogger {
         return formattedMessage.toString();
     }
 
+    /**
+     * Strips color codes from a message.
+     *
+     * @param message the message with color codes
+     * @return the message without color codes
+     */
+    private static String stripColors(String message) {
+        return message.replaceAll("&#[A-Fa-f0-9]{6}|&#reset", "");
+    }
 
     /**
      * Converts a hex color code to an ANSI escape code.
@@ -122,38 +207,6 @@ public class PrettyLogger {
 
         return String.format("\u001B[38;2;%d;%d;%dm", red, green, blue);
     }
-}
-
-class CustomLogFormatter implements LogFormatter {
-    private static final int LEVEL_WIDTH = 5;
-
-    @Override
-    public String format(LogEvent logEvent) {
-        long timestampMillis = logEvent.getTimestamp();
-        long timestamp = timestampMillis / 1000; // Convert to seconds
-
-        String level = logEvent.getLevel().name();
-        String message = logEvent.getMessage();
-        String time = String.format("[%02d:%02d:%02d]",
-                (timestamp / 3600) % 24,
-                (timestamp / 60) % 60,
-                timestamp % 60
-        );
-
-        String paddedLevel = String.format("%-" + LEVEL_WIDTH + "s", level);
-        String threadName = "[" + Thread.currentThread().getName() + "]";
-
-        return PrettyLogger.applyHexColors(
-            String.format("%s &#FFEE8CFlash&#reset %s %s: %s", 
-                time, 
-                threadName,
-                paddedLevel, 
-                message
-            )
-        );
-    }
-
-
 }
 
 

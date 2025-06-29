@@ -4,6 +4,7 @@ import com.pixelservices.flash.components.FlashServer;
 import com.pixelservices.flash.components.http.RequestHandler;
 import com.pixelservices.flash.components.http.HandlerType;
 import com.pixelservices.flash.components.http.HttpMethod;
+import com.pixelservices.flash.components.http.routing.models.SimpleHandlerWrapper;
 import com.pixelservices.flash.utils.PrettyLogger;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -65,6 +66,27 @@ public class HandlerPoolManager {
      */
     @SuppressWarnings("unchecked")
     public <T extends RequestHandler> HandlerPool<T> getOrCreatePool(Class<T> handlerClass) {
+        // For SimpleHandlerWrapper, we need to get the handler ID from the instance
+        if (SimpleHandlerWrapper.class.isAssignableFrom(handlerClass)) {
+            try {
+                // Create a temporary instance to get its ID
+                T instance = handlerClass.getDeclaredConstructor().newInstance();
+                String handlerId = ((SimpleHandlerWrapper) instance).getHandlerId();
+                return (HandlerPool<T>) pools.computeIfAbsent(handlerId, k -> {
+                    HandlerPool<T> pool = new HandlerPool<>(handlerClass, defaultInitialSize, defaultMinSize, defaultMaxSize);
+                    return pool;
+                });
+            } catch (Exception e) {
+                // Fallback to class name if we can't get the handler ID
+                String handlerName = handlerClass.getSimpleName();
+                return (HandlerPool<T>) pools.computeIfAbsent(handlerName, k -> {
+                    HandlerPool<T> pool = new HandlerPool<>(handlerClass, defaultInitialSize, defaultMinSize, defaultMaxSize);
+                    return pool;
+                });
+            }
+        }
+        
+        // For other handlers, use the class name as the key
         String handlerName = handlerClass.getSimpleName();
         return (HandlerPool<T>) pools.computeIfAbsent(handlerName, k -> {
             HandlerPool<T> pool = new HandlerPool<>(handlerClass, defaultInitialSize, defaultMinSize, defaultMaxSize);

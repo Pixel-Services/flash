@@ -186,8 +186,30 @@ public class Response {
 
     private void ensureNotFinalized() {
         if (finalized) {
-            throw new IllegalStateException("Response is already finalized");
+            StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+
+            StringBuilder msg = new StringBuilder("Response is already finalized\nCall trace:");
+            for (int i = 2; i < Math.min(stack.length, 8); i++) {
+                StackTraceElement element = stack[i];
+                msg.append("\n\tat ")
+                        .append(element.getClassName())
+                        .append("#")
+                        .append(element.getMethodName())
+                        .append(" (")
+                        .append(element.getFileName())
+                        .append(":")
+                        .append(element.getLineNumber())
+                        .append(")");
+            }
+
+            throw new IllegalStateException(msg.toString());
         }
+    }
+
+
+
+    public boolean isFinalized() {
+        return finalized;
     }
 
     @Override

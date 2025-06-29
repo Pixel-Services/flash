@@ -169,8 +169,15 @@ public class HandlerPool<T extends RequestHandler> {
     }
 
     private T createHandlerInstance() throws Exception {
-        Constructor<T> constructor = handlerClass.getConstructor(Request.class, Response.class);
-        return constructor.newInstance(null, null);
+        try {
+            // First try to find a no-args constructor
+            Constructor<T> noArgsConstructor = handlerClass.getDeclaredConstructor();
+            return noArgsConstructor.newInstance();
+        } catch (NoSuchMethodException e) {
+            // If no-args constructor not found, try Request, Response constructor
+            Constructor<T> reqResConstructor = handlerClass.getConstructor(Request.class, Response.class);
+            return reqResConstructor.newInstance(null, null);
+        }
     }
 
     public Class<T> getHandlerClass() {

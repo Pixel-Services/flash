@@ -20,6 +20,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.function.Supplier;
 
+import static com.pixelservices.flash.utils.Constant.MIME_TYPES;
+
 /**
  * Serves dynamic files from either the filesystem or a resource stream.
  * Supports single-page applications with an entrypoint fallback.
@@ -82,28 +84,30 @@ public class DynamicFileServer {
      */
     private void registerStaticRoutes(String endpoint, String basePath, Path rootPath, Class<?> contextClass, boolean isResource) {
         if (isResource) {
-            for (String resourcePath : listResourceFiles(basePath, contextClass)) {
-                String relativePath = resourcePath.substring(basePath.length()).replaceFirst("^/", "");
-                String routePath = endpoint + "/" + relativePath;
-                cacheAndRegisterFile(routePath, () -> contextClass.getClassLoader().getResourceAsStream(resourcePath), resourcePath, true);
-            }
+            listResourceFiles(basePath, contextClass).forEach(resourcePath -> {
+                String relative = resourcePath.substring(basePath.length()).replaceFirst("^/", "");
+                registerFile(endpoint + "/" + relative, () -> contextClass.getClassLoader().getResourceAsStream(resourcePath), resourcePath, true);
+            });
         } else {
             try (Stream<Path> paths = Files.walk(rootPath)) {
-                paths.filter(Files::isRegularFile).forEach(filePath -> {
-                    String relativePath = rootPath.relativize(filePath).toString().replace("\\", "/");
-                    String routePath = endpoint + "/" + relativePath;
-                    cacheAndRegisterFile(routePath, () -> {
+                paths.filter(Files::isRegularFile).forEach(path -> {
+                    String relative = rootPath.relativize(path).toString().replace("\\", "/");
+                    registerFile(endpoint + "/" + relative, () -> {
                         try {
-                            return Files.newInputStream(filePath);
+                            return Files.newInputStream(path);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                    }, filePath.toString(), false);
+                    }, path.toString(), false);
                 });
             } catch (IOException e) {
                 throw new RuntimeException("Failed to list directory: " + rootPath, e);
             }
         }
+    }
+
+    private void registerFile(String routePath, Supplier<InputStream> streamSupplier, String sourcePath, boolean isResource) {
+        cacheAndRegisterFile(routePath, streamSupplier, sourcePath, isResource);
     }
 
     /**
@@ -121,28 +125,34 @@ public class DynamicFileServer {
      * Caches and registers a static file route.
      */
     private void cacheAndRegisterFile(String routePath, Supplier<InputStream> streamSupplier, String sourcePath, boolean isResource) {
-        if (!assetCache.contains(routePath)) {
-            try (InputStream is = streamSupplier.get()) {
-                if (is == null) throw new IllegalArgumentException("Not found: " + sourcePath);
+        if (assetCache.contains(routePath)) return;
 
-                byte[] content;
-                String lower = sourcePath.toLowerCase();
-                if (lower.endsWith(".html") || lower.endsWith(".js")) {
-                    String text = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-                    text = text.replaceAll("(href|src)=([\"'])/", "$1=$2" + routePath + "/");
-                    content = text.getBytes(StandardCharsets.UTF_8);
-                } else {
-                    content = is.readAllBytes();
-                }
+        try (InputStream is = streamSupplier.get()) {
+            if (is == null) throw new IllegalArgumentException("Not found: " + sourcePath);
 
-                assetCache.put(routePath, content);
-                registerStaticFileRoute(routePath, sourcePath, isResource);
+            byte[] content;
+            String lower = sourcePath.toLowerCase();
 
-            } catch (IOException e) {
-                PrettyLogger.withEmoji("Error caching file: " + e.getMessage(), "⚠️");
+            if (lower.endsWith(".html") || lower.endsWith(".js")) {
+                String text = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                text = text.replaceAll("(href|src)=([\"'])/", "$1=$2" + routePath + "/");
+                content = text.getBytes(StandardCharsets.UTF_8);
+            } else {
+                content = is.readAllBytes();
             }
+
+            assetCache.put(routePath, content);
+            String type = getContentType(sourcePath, isResource);
+
+            //PrettyLogger.withEmoji("📦 Cached: " + routePath + " (" + content.length + " bytes, type=" + type + ")", "📁");
+
+            registerStaticFileRoute(routePath, sourcePath, isResource);
+
+        } catch (IOException e) {
+            PrettyLogger.withEmoji("⚠️ Error caching file: " + e.getMessage(), "⚠️");
         }
     }
+
 
     /**
      * Registers a static file route.
@@ -150,71 +160,24 @@ public class DynamicFileServer {
     private void registerStaticFileRoute(String routePath, String sourcePath, boolean isResource) {
         server.registerRoute(HttpMethod.GET, routePath, (req, res) -> {
             byte[] content = assetCache.get(routePath);
-            if (content == null) {
-                return res.status(404).body("File not found").getBody();
-            }
+            if (content == null) return res.status(404).body("File not found").getBody();
 
             String rangeHeader = req.header("Range");
-            String contentType;
+            String contentType = getContentType(sourcePath, isResource);
 
-            try {
-                contentType = isResource
-                        ? FileServerUtility.getContentType(sourcePath)
-                        : Optional.ofNullable(Files.probeContentType(Paths.get(sourcePath))).orElse("application/octet-stream");
-            } catch (IOException e) {
-                PrettyLogger.withEmoji("Error determining content type: " + e.getMessage(), "⚠️");
-                contentType = "application/octet-stream";
-            }
-
-            if (rangeHeader != null) {
-                try {
-                    String[] parts = rangeHeader.replace("bytes=", "").split("-");
-                    int start = Integer.parseInt(parts[0]);
-                    int end = (parts.length > 1 && !parts[1].isEmpty()) ? Integer.parseInt(parts[1]) : content.length - 1;
-
-                    if (start > end || start >= content.length) {
-                        return res.status(416).body("Requested Range Not Satisfiable").getBody();
-                    }
-
-                    byte[] rangedContent = Arrays.copyOfRange(content, start, Math.min(end + 1, content.length));
-
-                    return res.status(206)
-                            .header("Content-Range", "bytes " + start + "-" + end + "/" + content.length)
-                            .type(contentType)
-                            .body(rangedContent)
-                            .getBody();
-                } catch (Exception e) {
-                    return res.status(400).body("Invalid Range Request").getBody();
-                }
+            Optional<Range> rangeOpt = parseRange(rangeHeader, content.length);
+            if (rangeOpt.isPresent()) {
+                Range r = rangeOpt.get();
+                byte[] rangedContent = Arrays.copyOfRange(content, r.start, r.end + 1);
+                return res.status(206)
+                        .header("Content-Range", "bytes " + r.start + "-" + r.end + "/" + content.length)
+                        .type(contentType)
+                        .body(rangedContent)
+                        .getBody();
             }
 
             return res.status(200).type(contentType).body(content).getBody();
         }, HandlerType.STATIC);
-    }
-
-    /**
-     * Parses a Range header and responds with partial content.
-     */
-    private byte[] handleRange(String rangeHeader, byte[] fileContent, Response res) {
-        try {
-            String[] parts = rangeHeader.replace("bytes=", "").split("-");
-            long start = Long.parseLong(parts[0]);
-            long end = (parts.length > 1) ? Long.parseLong(parts[1]) : fileContent.length - 1;
-
-            if (start >= fileContent.length) {
-                res.status(416).body("Requested Range Not Satisfiable");
-                return null;
-            }
-
-            byte[] slice = Arrays.copyOfRange(fileContent, (int) start, (int) (end + 1));
-            res.status(206)
-                    .header("Content-Range", "bytes " + start + "-" + end + "/" + fileContent.length)
-                    .body(slice);
-            return slice;
-        } catch (Exception e) {
-            res.status(400).body("Invalid Range Request");
-            return null;
-        }
     }
 
     /**
@@ -252,4 +215,57 @@ public class DynamicFileServer {
         }
         return result;
     }
+
+    private String getContentType(String sourcePath, boolean isResource) {
+        String lower = sourcePath.toLowerCase();
+
+        String baseName = lower;
+        if (lower.endsWith(".gz") || lower.endsWith(".br")) {
+            int idx = lower.lastIndexOf('.');
+            baseName = lower.substring(0, idx);
+        }
+
+        for (Map.Entry<String, String> entry : MIME_TYPES.entrySet()) {
+            if (baseName.endsWith(entry.getKey())) {
+                String mime = entry.getValue();
+
+                if (lower.endsWith(".gz")) {
+                    mime += "; charset=utf-8";
+                }
+                return mime;
+            }
+        }
+
+        //fallback to probe or default
+        try {
+            return isResource
+                    ? FileServerUtility.getContentType(sourcePath)
+                    : Optional.ofNullable(Files.probeContentType(Paths.get(sourcePath))).orElse("application/octet-stream");
+        } catch (IOException e) {
+            PrettyLogger.withEmoji("⚠️ Content-Type fallback: " + e.getMessage(), "⚠️");
+            return "application/octet-stream";
+        }
+    }
+
+    private Optional<Range> parseRange(String rangeHeader, int contentLength) {
+        try {
+            if (rangeHeader == null || !rangeHeader.startsWith("bytes=")) return Optional.empty();
+
+            String[] parts = rangeHeader.replace("bytes=", "").split("-");
+            int start = Integer.parseInt(parts[0].trim());
+            int end = parts.length > 1 && !parts[1].isEmpty() ? Integer.parseInt(parts[1].trim()) : contentLength - 1;
+
+            if (start > end || start >= contentLength) return Optional.empty();
+            return Optional.of(new Range(start, end));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    private static class Range {
+        int start, end;
+        Range(int start, int end) { this.start = start; this.end = end; }
+    }
+
+
 }
