@@ -1,7 +1,7 @@
 package com.pixelservices.flash.components.websocket;
 
 import com.pixelservices.flash.components.http.routing.models.RequestInfo;
-import com.pixelservices.flash.utils.PrettyLogger;
+import com.pixelservices.flash.utils.FlashLogger;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -97,7 +97,7 @@ public class WebSocketSession {
 
             @Override
             public void failed(Throwable exc, ByteBuffer buf) {
-                PrettyLogger.error("Failed to send WebSocket message: " + exc.getMessage());
+                FlashLogger.getLogger().error("Failed to send WebSocket message", exc);
             }
         });
     }
@@ -131,7 +131,7 @@ public class WebSocketSession {
             }
             @Override
             public void failed(Throwable exc, ByteBuffer buf) {
-                PrettyLogger.error("Failed to send WebSocket binary message: " + exc.getMessage());
+                FlashLogger.getLogger().error("Failed to send WebSocket binary message", exc);
             }
         });
     }
@@ -167,17 +167,17 @@ public class WebSocketSession {
                     Thread.sleep(100);
                     channel.close();
                 } catch (InterruptedException | IOException e) {
-                    PrettyLogger.error("Error while closing WebSocket session: " + e.getMessage());
+                    FlashLogger.getLogger().error("Error while closing WebSocket session", e);
                 }
             }
 
             @Override
             public void failed(Throwable exc, Void attachment) {
-                PrettyLogger.error("Failed to send WebSocket close frame: " + exc.getMessage());
+                FlashLogger.getLogger().error("Failed to send WebSocket close frame", exc);
                 try {
                     channel.close();
                 } catch (IOException e) {
-                    PrettyLogger.error("Failed to close WebSocket channel: " + e.getMessage());
+                    FlashLogger.getLogger().error("Failed to close WebSocket channel", exc);
                 }
             }
         });

@@ -23,7 +23,7 @@ import com.pixelservices.flash.models.*;
 import com.pixelservices.flash.swagger.OpenAPIConfiguration;
 import com.pixelservices.flash.swagger.OpenAPISchemaGenerator;
 import com.pixelservices.flash.swagger.OpenAPIUITemplate;
-import com.pixelservices.flash.utils.PrettyLogger;
+import com.pixelservices.flash.utils.FlashLogger;
 import org.json.JSONObject;
 
 import java.io.IOException;
@@ -43,6 +43,7 @@ import java.util.concurrent.*;
  * Flash is a highly optimized, asynchronous and multithreaded web server.
  */
 public class FlashServer {
+    private static final FlashLogger logger = FlashLogger.getLogger(FlashServer.class);
     private final ConcurrentHashMap<String, RequestHandler> routeHandlers = new ConcurrentHashMap<>();
 
     // Add HandlerPoolManager as a field
@@ -122,7 +123,7 @@ public class FlashServer {
                 try {
                     startServerInternal();
                 } catch (Exception e) {
-                    PrettyLogger.withEmoji("Server error: " + e.getMessage(), "❌");
+                    logger.error("Server error", e);
                 }
             }, "FlashServer-" + port);
             
@@ -161,15 +162,15 @@ public class FlashServer {
                 if (serverThread != null && serverThread.isAlive()) {
                     serverThread.join(5000); // Wait up to 5 seconds
                     if (serverThread.isAlive()) {
-                        PrettyLogger.withEmoji("Server thread did not stop gracefully, forcing shutdown", "⚠️");
+                        logger.warn("Server thread did not stop gracefully, forcing shutdown");
                         serverThread.interrupt();
                     }
                 }
                 
-                PrettyLogger.withEmoji("Server stopped successfully on port " + port, "🛑");
+                logger.info("Server stopped successfully on port " + port);
                 
             } catch (Exception e) {
-                PrettyLogger.withEmoji("Error stopping server: " + e.getMessage(), "❌");
+                logger.error("Error stopping server", e);
             } finally {
                 serverThread = null;
             }
@@ -223,7 +224,7 @@ public class FlashServer {
             }
             
         } catch (IOException e) {
-            PrettyLogger.withEmoji("Error starting server: " + e.getMessage(), "❌");
+            logger.error("Error starting server: ", e);
             throw new ServerStartupException("Error starting server", e);
         }
     }
@@ -237,7 +238,7 @@ public class FlashServer {
             }
             @Override
             public void failed(Throwable exc, Object attachment) {
-                PrettyLogger.withEmoji("Failed to accept connection: " + exc.getMessage(), "⚠️");
+                logger.error("Failed to accept connection", exc);
                 acceptNextConnection();
             }
         });
@@ -247,13 +248,13 @@ public class FlashServer {
 
     public void use(Middleware middleware) {
         globalMiddlewares.add(new MiddlewareEntry(middleware, null));
-        PrettyLogger.withEmoji("Global middleware registered", "🔄");
+        logger.info("Global middleware registered");
     }
 
     public void use(String pathPrefix, Middleware middleware) {
         pathMiddlewares.computeIfAbsent(pathPrefix, k -> new CopyOnWriteArrayList<>())
                 .add(new MiddlewareEntry(middleware, pathPrefix));
-        PrettyLogger.withEmoji("Path middleware registered for: " + pathPrefix, "🔄");
+        logger.info("Path middleware registered for: " + pathPrefix);
     }
 
     public void enableCORS(String allowedOrigins, String allowedMethods, String allowedHeaders) {
@@ -271,7 +272,7 @@ public class FlashServer {
         };
         use(corsMiddleware);
         registerRoute(HttpMethod.OPTIONS, "/*", (req, res) -> "", HandlerType.INTERNAL);
-        PrettyLogger.withEmoji("CORS enabled for origin: " + allowedOrigins, "🌐");
+        logger.info("CORS enabled for origin: " + allowedOrigins);
     }
 
     // ------------------ Route Registration ------------------ //
@@ -297,8 +298,8 @@ public class FlashServer {
                 poolInfo = " [Pool: " + entry.getHandlerPool().getTotalSize() + "/" + 
                           entry.getHandlerPool().getHandlerClass() + "]";
             }
-            PrettyLogger.withEmoji(handlerType.name() + " " + routingType + " Route registered: [" + method + "] " + 
-                                fullPath + poolInfo, handlerType.getEmoji());
+            logger.info(handlerType.name() + " " + routingType + " Route registered: [" + method + "] " +
+                                fullPath + poolInfo);
         }
         handler.setSpecification(new HandlerSpecification(handler, fullPath, method, handler.isEnforcedNonNullBody()));
         routeHandlers.put(method.name() + ":" + fullPath, handler);
@@ -323,7 +324,7 @@ public class FlashServer {
     public void unregisterRoute(HttpMethod method, String fullPath) {
         final String routeKey = method.name() + ":" + fullPath;
         if (routeHandlers.remove(routeKey) != null) {
-            PrettyLogger.withEmoji("Route unregistered: [" + method + "] " + fullPath, "❌");
+            logger.info("Route unregistered: [" + method + "] " + fullPath);
         }
     }
 
@@ -453,13 +454,13 @@ public class FlashServer {
     }
 
     private void handleDecodingError(Exception ex, ClientAttachment att) {
-        PrettyLogger.withEmoji("Decoding error: " + ex.getMessage(), "❌");
+        logger.error("Decoding error", ex);
         cleanupResources(att);
     }
 
     private void handleFailure(Throwable exc, ClientAttachment att) {
-        PrettyLogger.withEmoji("Read failed: " + exc.getMessage(), "❌");
-        PrettyLogger.log("Buffer state on read fail - Position: " + att.buffer.position() + ", Limit: " + att.buffer.limit() + ", Capacity: " + att.buffer.capacity()); // Logging buffer state on failure
+        logger.error("Read failed", exc);
+        logger.error("Buffer state on read fail - Position: " + att.buffer.position() + ", Limit: " + att.buffer.limit() + ", Capacity: " + att.buffer.capacity());
         new RequestExceptionHandler(att.channel, new Exception(exc)).handle();
         cleanupResources(att);
     }
@@ -509,7 +510,7 @@ public class FlashServer {
 
     public static void closeSocket(AsynchronousSocketChannel clientChannel) {
         try { clientChannel.close(); }
-        catch (IOException e) { PrettyLogger.withEmoji("Error closing socket: " + e.getMessage(), "❌"); }
+        catch (IOException e) { logger.error("Error closing socket ", e); }
     }
 
     // ------------------ Simple Route Registrations ------------------ //
@@ -547,7 +548,7 @@ public class FlashServer {
 
     private void registerWebSocketRoute(String endpoint, WebSocketHandler handler) {
         webSocketHandlers.put(endpoint, handler);
-        PrettyLogger.withEmoji("WebSocket Route registered: " + endpoint, "🔗");
+        logger.info("WebSocket Route registered: " + endpoint);
     }
 
     public void get(String endpoint, SimpleHandler handler) {

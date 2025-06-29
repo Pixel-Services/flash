@@ -33,7 +33,7 @@ public abstract class AbstractRadixRouteTrie<T> {
     protected volatile Node<T> root = new Node<>();
 
     public void insert(String path, T value) {
-        logger.warning("Using deprecated insert(String path). Prefer insert(RouteEntry, T) for performance.");
+        //logger.warning("Using deprecated insert(String path). Prefer insert(RouteEntry, T) for performance.");
         String[] segments = path.split("/");
         segments = java.util.Arrays.stream(segments)
                 .filter(s -> !s.isEmpty())

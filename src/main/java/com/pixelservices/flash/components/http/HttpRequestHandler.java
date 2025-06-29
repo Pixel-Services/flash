@@ -13,7 +13,7 @@ import com.pixelservices.flash.components.http.routing.models.RouteMatch;
 import com.pixelservices.flash.exceptions.RequestExceptionHandler;
 import com.pixelservices.flash.exceptions.UnmatchedHandlerException;
 import com.pixelservices.flash.models.ClientAttachment;
-import com.pixelservices.flash.utils.PrettyLogger;
+import com.pixelservices.flash.utils.FlashLogger;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -85,7 +85,7 @@ public class HttpRequestHandler {
                 try {
                     releaseHandlerToPool(match.entry().getHandlerPool(), handler);
                 } catch (Exception e) {
-                    PrettyLogger.withEmoji("Error returning handler to pool: " + e.getMessage(), "⚠️");
+                    FlashLogger.getLogger().error("Error returning handler to pool", e);
                 }
             }
 
@@ -112,7 +112,7 @@ public class HttpRequestHandler {
 
             @Override
             public void failed(Throwable exc, ByteBuffer buf) {
-                PrettyLogger.withEmoji("Error sending response: " + exc.getMessage(), "⚠️");
+                FlashLogger.getLogger().error("Error sending response", exc);
                 FlashServer.closeSocket(clientChannel);
             }
         });
@@ -142,7 +142,7 @@ public class HttpRequestHandler {
 
                     @Override
                     public void failed(Throwable exc, ChunkedContext context) {
-                        PrettyLogger.withEmoji("Error sending large file headers: " + exc.getMessage(), "⚠️");
+                        FlashLogger.getLogger().error("Error sending large file headers", exc);
                         FlashServer.closeSocket(clientChannel);
                     }
                 });
@@ -164,7 +164,7 @@ public class HttpRequestHandler {
 
                 @Override
                 public void failed(Throwable exc, Void attachment) {
-                    PrettyLogger.withEmoji("Error sending final chunk: " + exc.getMessage(), "⚠️");
+                    FlashLogger.getLogger().error("Error sending final chunk", exc);
                     FlashServer.closeSocket(context.channel);
                 }
             });
@@ -211,7 +211,7 @@ public class HttpRequestHandler {
 
             @Override
             public void failed(Throwable exc, ChunkedContext updatedContext) {
-                PrettyLogger.withEmoji("Error sending chunk: " + exc.getMessage(), "⚠️");
+                FlashLogger.getLogger().error("Error sending chunk", exc);
                 FlashServer.closeSocket(context.channel);
             }
         });

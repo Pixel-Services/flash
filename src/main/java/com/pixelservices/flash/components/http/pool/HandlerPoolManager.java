@@ -5,7 +5,7 @@ import com.pixelservices.flash.components.http.RequestHandler;
 import com.pixelservices.flash.components.http.HandlerType;
 import com.pixelservices.flash.components.http.HttpMethod;
 import com.pixelservices.flash.components.http.routing.models.SimpleHandlerWrapper;
-import com.pixelservices.flash.utils.PrettyLogger;
+import com.pixelservices.flash.utils.FlashLogger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit;
  * and monitoring capabilities.
  */
 public class HandlerPoolManager {
+    private static final FlashLogger logger = FlashLogger.getLogger(HandlerPoolManager.class);
     // Change the map to use String keys (handler names)
     private final Map<String, HandlerPool<? extends RequestHandler>> pools = new ConcurrentHashMap<>();
     private final ScheduledExecutorService monitoringService;
@@ -57,7 +58,7 @@ public class HandlerPoolManager {
             res.type("application/json");
             return getPoolsInfoAsJson();
         }, HandlerType.INTERNAL);
-        PrettyLogger.withEmoji("Handler Pool API endpoint registered at /_flash/devtools/api/handlerpool", "🔍");
+        logger.info("Handler Pool API endpoint registered at /_flash/devtools/api/handlerpool");
     }
     
     /**
@@ -72,26 +73,17 @@ public class HandlerPoolManager {
                 // Create a temporary instance to get its ID
                 T instance = handlerClass.getDeclaredConstructor().newInstance();
                 String handlerId = ((SimpleHandlerWrapper) instance).getHandlerId();
-                return (HandlerPool<T>) pools.computeIfAbsent(handlerId, k -> {
-                    HandlerPool<T> pool = new HandlerPool<>(handlerClass, defaultInitialSize, defaultMinSize, defaultMaxSize);
-                    return pool;
-                });
+                return (HandlerPool<T>) pools.computeIfAbsent(handlerId, k -> new HandlerPool<T>(handlerClass, defaultInitialSize, defaultMinSize, defaultMaxSize));
             } catch (Exception e) {
                 // Fallback to class name if we can't get the handler ID
                 String handlerName = handlerClass.getSimpleName();
-                return (HandlerPool<T>) pools.computeIfAbsent(handlerName, k -> {
-                    HandlerPool<T> pool = new HandlerPool<>(handlerClass, defaultInitialSize, defaultMinSize, defaultMaxSize);
-                    return pool;
-                });
+                return (HandlerPool<T>) pools.computeIfAbsent(handlerName, k -> new HandlerPool<T>(handlerClass, defaultInitialSize, defaultMinSize, defaultMaxSize));
             }
         }
         
         // For other handlers, use the class name as the key
         String handlerName = handlerClass.getSimpleName();
-        return (HandlerPool<T>) pools.computeIfAbsent(handlerName, k -> {
-            HandlerPool<T> pool = new HandlerPool<>(handlerClass, defaultInitialSize, defaultMinSize, defaultMaxSize);
-            return pool;
-        });
+        return (HandlerPool<T>) pools.computeIfAbsent(handlerName, k -> new HandlerPool<T>(handlerClass, defaultInitialSize, defaultMinSize, defaultMaxSize));
     }
     
     // Update getPoolsInfoAsJson to work with the new map structure
@@ -137,16 +129,18 @@ public class HandlerPoolManager {
             if (activeHandlers > totalSize * 0.8) {
                 int newMaxSize = Math.min(totalSize * 2, 1000);
                 pool.updatePoolSizeConstraints(defaultMinSize, newMaxSize);
-                PrettyLogger.withEmoji("Increased pool max size for " + handlerName + 
-                        " to " + newMaxSize + " (active: " + activeHandlers + ", total: " + totalSize + ")", "📈");
+                logger.info("Increased pool max size for " + handlerName +
+                        " to " + newMaxSize + " (active: " + activeHandlers + ", total: " + totalSize + ")");
+
             }
             
             // If we're consistently using less than 20% of the pool, decrease max size
             if (activeHandlers < totalSize * 0.2 && totalSize > defaultMinSize * 2) {
                 int newMaxSize = Math.max(totalSize / 2, defaultMinSize * 2);
                 pool.updatePoolSizeConstraints(defaultMinSize, newMaxSize);
-                PrettyLogger.withEmoji("Decreased pool max size for " + handlerName + 
-                        " to " + newMaxSize + " (active: " + activeHandlers + ", total: " + totalSize + ")", "📉");
+                logger.info("Decreased pool max size for " + handlerName +
+                        " to " + newMaxSize + " (active: " + activeHandlers + ", total: " + totalSize + ")");
+
             }
         });
     }

@@ -3,7 +3,7 @@ package com.pixelservices.flash.components.http.pool;
 import com.pixelservices.flash.components.http.RequestHandler;
 import com.pixelservices.flash.components.http.lifecycle.Request;
 import com.pixelservices.flash.components.http.lifecycle.Response;
-import com.pixelservices.flash.utils.PrettyLogger;
+import com.pixelservices.flash.utils.FlashLogger;
 
 import java.lang.reflect.Constructor;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.StampedLock;
 
 public class HandlerPool<T extends RequestHandler> {
+    private static final FlashLogger logger = FlashLogger.getLogger(HandlerPool.class);
     private final Class<T> handlerClass;
     private final ConcurrentLinkedQueue<T> availableHandlers = new ConcurrentLinkedQueue<>();
     private final AtomicInteger totalSize = new AtomicInteger(0);
@@ -37,7 +38,7 @@ public class HandlerPool<T extends RequestHandler> {
                 availableHandlers.offer(handler);
                 totalSize.incrementAndGet();
             } catch (Exception e) {
-                PrettyLogger.withEmoji("Failed to create initial handler instance: " + e.getMessage(), "⚠️");
+                logger.info("Failed to create initial handler instance: " + e.getMessage());
             }
         }
     }
@@ -91,11 +92,12 @@ public class HandlerPool<T extends RequestHandler> {
                                     availableHandlers.offer(handler);
                                     totalSize.incrementAndGet();
                                 } catch (Exception e) {
-                                    PrettyLogger.withEmoji("Failed to create handler for pool expansion: " + e.getMessage(), "⚠️");
+                                    logger.info("Failed to create handler for pool expansion: " + e.getMessage());
                                 }
                             }
-                            PrettyLogger.withEmoji("Pool expanded: added " + toAdd + " handlers due to high miss ratio (" + 
-                                    String.format("%.1f%%", missRatio * 100) + ")", "🔄");
+                            logger.info("Pool expanded: added " + toAdd + " handlers due to high miss ratio (" +
+                                    String.format("%.1f%%", missRatio * 100) + ")");
+
                         }
                         
                         // Reset counters
@@ -160,7 +162,7 @@ public class HandlerPool<T extends RequestHandler> {
                         availableHandlers.poll();
                         totalSize.decrementAndGet();
                     }
-                    PrettyLogger.withEmoji("Pool shrunk: removed " + toRemove + " handlers", "🔄");
+                    logger.info("Pool shrunk: removed " + toRemove + " handlers");
                 }
             } finally {
                 resizeLock.unlockWrite(stamp);

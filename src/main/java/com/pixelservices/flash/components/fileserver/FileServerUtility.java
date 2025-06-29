@@ -1,7 +1,7 @@
 package com.pixelservices.flash.components.fileserver;
 
 
-import com.pixelservices.flash.utils.PrettyLogger;
+import com.pixelservices.flash.utils.FlashLogger;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -23,7 +23,7 @@ public class FileServerUtility {
                                 StandardWatchEventKinds.ENTRY_DELETE,
                                 StandardWatchEventKinds.ENTRY_MODIFY);
                     } catch (IOException e) {
-                        PrettyLogger.withEmoji("Error registering directory: " + dir, "⚠️");
+                        FlashLogger.getLogger().info("Error registering directory: " + dir);
                     }
                 });
     }
@@ -35,7 +35,7 @@ public class FileServerUtility {
     public static void startDirectoryWatcher(Path rootPath, FileWatcherCallback callback) {
         try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
             registerAllSubdirectories(rootPath, watchService);
-            PrettyLogger.withEmoji("Watching directory for changes: &#80EF80" + rootPath, "👀");
+            FlashLogger.getLogger().info("Watching directory for changes: &#80EF80" + rootPath);
 
             while (true) {
                 WatchKey key = watchService.take();
@@ -46,7 +46,7 @@ public class FileServerUtility {
                 key.reset();
             }
         } catch (IOException | InterruptedException e) {
-            PrettyLogger.withEmoji("Error watching directory: " + e.getMessage(), "⚠️");
+            FlashLogger.getLogger().info("Error watching directory: " + e.getMessage());
         }
     }
 

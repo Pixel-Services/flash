@@ -3,7 +3,7 @@ package com.pixelservices.flash.components.fileserver;
 import com.pixelservices.flash.components.FlashServer;
 import com.pixelservices.flash.components.http.HandlerType;
 import com.pixelservices.flash.components.http.HttpMethod;
-import com.pixelservices.flash.utils.PrettyLogger;
+import com.pixelservices.flash.utils.FlashLogger;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -123,7 +123,7 @@ public class StaticFileServer {
                 assetCache.put(routePath, fileContent);
                 registerStaticFileRoute(routePath, filePath);
             } catch (IOException e) {
-                PrettyLogger.withEmoji("Error caching file: " + e.getMessage(), "⚠️");
+                FlashLogger.getLogger().info("Error caching file: " + e.getMessage());
             }
         }
     }

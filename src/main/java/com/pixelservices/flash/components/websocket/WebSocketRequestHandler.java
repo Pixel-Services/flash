@@ -3,7 +3,7 @@ package com.pixelservices.flash.components.websocket;
 import com.pixelservices.flash.components.FlashServer;
 import com.pixelservices.flash.components.OffHeapBufferPool;
 import com.pixelservices.flash.components.http.routing.models.RequestInfo;
-import com.pixelservices.flash.utils.PrettyLogger;
+import com.pixelservices.flash.utils.FlashLogger;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
@@ -35,11 +35,11 @@ public class WebSocketRequestHandler {
         WebSocketHandler handler = webSocketHandlers.get(path);
 
         if (handler == null) {
-            PrettyLogger.withEmoji("No WebSocket handler found for path: " + path, "⚠️");
+            FlashLogger.getLogger().info("No WebSocket handler found for path: " + path);
             try {
                 FlashServer.closeSocket(clientChannel);
             } catch (Exception e) {
-                PrettyLogger.withEmoji("Error closing WebSocket with no handler: " + e.getMessage(), "❌");
+                FlashLogger.getLogger().info("Error closing WebSocket with no handler: " + e.getMessage());
             }
             return;
         }
@@ -47,7 +47,7 @@ public class WebSocketRequestHandler {
         try {
             String webSocketKey = reqInfo.getHeader("Sec-WebSocket-Key");
             if (webSocketKey == null) {
-                PrettyLogger.withEmoji("WebSocket handshake failed: missing Sec-WebSocket-Key header", "❌");
+                FlashLogger.getLogger().info("WebSocket handshake failed: missing Sec-WebSocket-Key header");
                 FlashServer.closeSocket(clientChannel);
                 return;
             }
@@ -79,7 +79,7 @@ public class WebSocketRequestHandler {
                             handler.onOpen(session);
                             startWebSocketFrameReader(session, handler, websocketBufferPool);
                         } catch (Exception e) {
-                            PrettyLogger.withEmoji("Error in WebSocket open handler: " + e.getMessage(), "❌");
+                            FlashLogger.getLogger().info("Error in WebSocket open handler: " + e.getMessage());
                             handler.onError(session, e);
                             removeSession(session);
                         }
@@ -88,12 +88,12 @@ public class WebSocketRequestHandler {
 
                 @Override
                 public void failed(Throwable exc, ByteBuffer buffer) {
-                    PrettyLogger.withEmoji("WebSocket handshake response failed: " + exc.getMessage(), "❌");
+                    FlashLogger.getLogger().info("WebSocket handshake response failed: " + exc.getMessage());
                     FlashServer.closeSocket(clientChannel);
                 }
             });
         } catch (Exception e) {
-            PrettyLogger.withEmoji("Error during WebSocket handshake: " + e.getMessage(), "❌");
+            FlashLogger.getLogger().info("Error during WebSocket handshake: " + e.getMessage());
             FlashServer.closeSocket(clientChannel);
         }
     }
@@ -105,7 +105,7 @@ public class WebSocketRequestHandler {
             byte[] sha1Hash = md.digest(concatenated.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(sha1Hash);
         } catch (NoSuchAlgorithmException e) {
-            PrettyLogger.withEmoji("Error generating WebSocket accept key: " + e.getMessage(), "❌");
+            FlashLogger.getLogger().info("Error generating WebSocket accept key: " + e.getMessage());
             throw new RuntimeException("Failed to generate WebSocket accept key", e);
         }
     }
@@ -130,7 +130,7 @@ public class WebSocketRequestHandler {
                         processWebSocketFrame(buffer, session, handler);
                         readWebSocketFrame(session, handler);
                     } catch (Exception e) {
-                        PrettyLogger.withEmoji("Error processing WebSocket frame: " + e.getMessage(), "❌");
+                        FlashLogger.getLogger().info("Error processing WebSocket frame: " + e.getMessage());
                         handler.onError(session, e);
                         removeSession(session);
                     }
@@ -168,7 +168,7 @@ public class WebSocketRequestHandler {
         int payloadLength = byte2 & 0x7F;
 
         if (rsv1 != 0 || rsv2 != 0 || rsv3 != 0) {
-            PrettyLogger.withEmoji("Invalid WebSocket frame: RSV1, RSV2, and RSV3 must be clear", "❌");
+            FlashLogger.getLogger().info("Invalid WebSocket frame: RSV1, RSV2, and RSV3 must be clear");
             session.close(1002, "Protocol error");
             return;
         }
@@ -189,7 +189,7 @@ public class WebSocketRequestHandler {
         }
 
         if (actualPayloadLength > FlashServer.WEBSOCKET_BUFFER_SIZE - 14) { // Use static constant from FlashServer
-            PrettyLogger.withEmoji("WebSocket frame too large: " + actualPayloadLength + " bytes", "⚠️");
+            FlashLogger.getLogger().info("WebSocket frame too large: " + actualPayloadLength + " bytes");
             session.close(1009, "Message too big");
             return;
         }
@@ -242,7 +242,7 @@ public class WebSocketRequestHandler {
                 // Ignore
                 break;
             default:
-                PrettyLogger.withEmoji("Unsupported WebSocket opcode: " + opcode, "⚠️");
+                FlashLogger.getLogger().info("Unsupported WebSocket opcode: " + opcode);
                 session.close(1003, "Unsupported data");
         }
     }
@@ -262,7 +262,7 @@ public class WebSocketRequestHandler {
 
             @Override
             public void failed(Throwable exc, Void attachment) {
-                PrettyLogger.withEmoji("Error sending WebSocket pong: " + exc.getMessage(), "❌");
+                FlashLogger.getLogger().info("Error sending WebSocket pong: " + exc.getMessage());
             }
         });
     }
@@ -273,7 +273,7 @@ public class WebSocketRequestHandler {
             FlashServer.WEBSOCKET_BUFFER_POOL.release(session.getBuffer());
             server.closeSocket(session.getChannel());
         } catch (Exception e) {
-            PrettyLogger.withEmoji("Error removing WebSocket session: " + e.getMessage(), "⚠️");
+            FlashLogger.getLogger().info("Error removing WebSocket session: " + e.getMessage());
         }
     }
 }

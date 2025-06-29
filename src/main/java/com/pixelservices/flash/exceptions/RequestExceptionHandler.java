@@ -1,7 +1,7 @@
 package com.pixelservices.flash.exceptions;
 
 import com.pixelservices.flash.components.http.lifecycle.Response;
-import com.pixelservices.flash.utils.PrettyLogger;
+import com.pixelservices.flash.utils.FlashLogger;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -60,7 +60,7 @@ public class RequestExceptionHandler {
         try {
             clientChannel.close();
         } catch (IOException e) {
-            PrettyLogger.withEmoji("Error closing socket: " + e.getMessage(), "❌");
+            FlashLogger.getLogger().info("Error closing socket: " + e.getMessage());
         }
     }
 }

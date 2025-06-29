@@ -3,8 +3,7 @@ package com.pixelservices.flash.components.fileserver;
 import com.pixelservices.flash.components.FlashServer;
 import com.pixelservices.flash.components.http.HandlerType;
 import com.pixelservices.flash.components.http.HttpMethod;
-import com.pixelservices.flash.components.http.lifecycle.Response;
-import com.pixelservices.flash.utils.PrettyLogger;
+import com.pixelservices.flash.utils.FlashLogger;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -149,7 +148,7 @@ public class DynamicFileServer {
             registerStaticFileRoute(routePath, sourcePath, isResource);
 
         } catch (IOException e) {
-            PrettyLogger.withEmoji("⚠️ Error caching file: " + e.getMessage(), "⚠️");
+            FlashLogger.getLogger().info("⚠️ Error caching file: " + e.getMessage());
         }
     }
 
@@ -242,7 +241,7 @@ public class DynamicFileServer {
                     ? FileServerUtility.getContentType(sourcePath)
                     : Optional.ofNullable(Files.probeContentType(Paths.get(sourcePath))).orElse("application/octet-stream");
         } catch (IOException e) {
-            PrettyLogger.withEmoji("⚠️ Content-Type fallback: " + e.getMessage(), "⚠️");
+            FlashLogger.getLogger().info("⚠️ Content-Type fallback: " + e.getMessage());
             return "application/octet-stream";
         }
     }

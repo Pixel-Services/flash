@@ -6,7 +6,7 @@
 
     <groupId>com.pixelservices</groupId>
     <artifactId>flash</artifactId>
-    <version>1.4.8</version>
+    <version>1.4.9-PRE</version>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
